@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme {
+  --color-roast: #17110d;     /* roasted oolong, the room */
+  --color-steep: #241a14;     /* drawer surface */
+  --color-leaf: #3a2c22;      /* hairlines */
+  --color-cream: #efe4d6;     /* text, milk */
+  --color-husk: #9a8877;      /* secondary text */
+  --color-taro: #b9a3e3;      /* listening */
+  --color-amber: #d9a15b;     /* brown sugar, thinking */
+  --color-matcha: #9fbf7a;    /* changed values flash */
+  --color-error: #e7867a;
+  --font-display: var(--font-display), system-ui, sans-serif;
+  --font-data: var(--font-data), system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-roast);
+  color: var(--color-cream);
+  font-family: var(--font-data);
+}
+
+:focus-visible { outline: 2px solid var(--color-taro); outline-offset: 3px; }
+
+@keyframes flash { from { background: color-mix(in oklab, var(--color-matcha) 35%, transparent); } to { background: transparent; } }
+.flash { animation: flash 1.4s ease-out; }
+
+@keyframes breathe { 50% { transform: scale(1.04); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
