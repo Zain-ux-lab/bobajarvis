@@ -18,7 +18,8 @@ if (existsSync(model)) {
   console.log(`No Whisper model at ${model}; see README "Audio setup".`);
 }
 
-const next = spawn("npx", ["next", "dev", ...process.argv.slice(2)], { stdio: "inherit" });
+// Start Next directly (not via npx) so stopping the app really stops it: npx would leave Next running as a grandchild.
+const next = spawn("node_modules/.bin/next", ["dev", ...process.argv.slice(2)], { stdio: "inherit" });
 children.push(next);
 
 const stop = () => children.forEach((c) => c.kill());
