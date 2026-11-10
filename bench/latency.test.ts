@@ -12,6 +12,8 @@ import { initialState, type ShopState } from "@/lib/shop";
 
 const fresh = initialState(0);
 const midRecipe: ShopState = { ...fresh, currentRecipeStepIndex: 2, focus: "recipe" };
+// The demo's real sequence: a ticket was just read aloud, its recipe not started yet.
+const afterRead: ShopState = { ...fresh, focus: "ticket", turns: [{ role: "user", text: "What's the current order?" }, { role: "assistant", text: "Order 101 for Jordan: Large Brown Sugar Boba Milk Tea, 70% sugar, less ice, with tapioca pearls." }] };
 const afterMilk: ShopState = { ...fresh, focus: "inventory", lastMentionedInventoryItems: ["whole_milk", "oat_milk"] };
 
 // [state, what the barista says, expected action types in order]
@@ -19,6 +21,8 @@ const CASES: [ShopState, string, string[]][] = [
   [fresh, "What's the first order I have to make?", ["read_ticket"]],
   [fresh, "What's the next order?", ["read_ticket"]],
   [fresh, "Got it. What's next?", ["continue_recipe"]],
+  [afterRead, "Got it. What's next?", ["continue_recipe"]],
+  [afterRead, "Got it. What is next?", ["continue_recipe"]],
   [midRecipe, "Okay next", ["continue_recipe"]],
   [midRecipe, "Done.", ["continue_recipe"]],
   [midRecipe, "Sugar?", ["order_attribute"]],

@@ -31,6 +31,8 @@ ACTIONS (use the fewest that satisfy the request, max 4; unused fields are null)
 - restock_mentioned {}: "restock those", "refill it", "top them up" referring to items mentioned earlier (the app resolves the referent from lastMentionedInventoryItems; if empty it asks).
 - clarify {question}: a short question when the request is ambiguous or missing a required detail.
 
+"NEXT" RULE: a bare "what's next?", "what is next?" or "next" (no word "order", "ticket" or "drink") ALWAYS means the next recipe step -> continue_recipe, even right after a ticket was read and before step 1. Only "next order" / "next ticket" -> read_ticket next. Only "next drink" -> next_drink.
+
 Inventory ids by category:
 ${itemsByCategory}
 Recipe ids: ${RECIPES.map((r) => r.id).join(", ")}
