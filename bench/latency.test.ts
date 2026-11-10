@@ -14,6 +14,7 @@ const fresh = initialState(0);
 const midRecipe: ShopState = { ...fresh, currentRecipeStepIndex: 2, focus: "recipe" };
 // The demo's real sequence: a ticket was just read aloud, its recipe not started yet.
 const afterRead: ShopState = { ...fresh, focus: "ticket", turns: [{ role: "user", text: "What's the current order?" }, { role: "assistant", text: "Order 101 for Jordan: Large Brown Sugar Boba Milk Tea, 70% sugar, less ice, with tapioca pearls." }] };
+const twoDrinks: ShopState = { ...fresh, activeOrderId: 102, focus: "ticket" }; // order 102 has two drinks
 const afterMilk: ShopState = { ...fresh, focus: "inventory", lastMentionedInventoryItems: ["whole_milk", "oat_milk"] };
 
 // [state, what the barista says, expected action types in order]
@@ -40,10 +41,14 @@ const CASES: [ShopState, string, string[]][] = [
   [fresh, "I used 200 ml of oat milk.", ["adjust_inventory"]],
   [fresh, "How much fruit to us do we have?", ["query_inventory"]],
   [fresh, "Does this one have toppings?", ["order_attribute"]],
+  [twoDrinks, "How do you make the second drink?", ["read_drink", "read_stage"]],
+  [fresh, "How do I make this?", ["read_stage"]],
+  [fresh, "What's the stock level like?", ["query_inventory"]],
+  [fresh, "Check all the stock.", ["query_inventory"]],
 ];
 
 // Also correct: "Thanks." with no action; the executor drops a read_ticket that follows a completion.
-const OK_ALTERNATIVES: Record<string, string[]> = { "Thanks.": ["clarify", ""], "That order is done. What's the next order?": ["complete_ticket,read_ticket"] };
+const OK_ALTERNATIVES: Record<string, string[]> = { "Thanks.": ["clarify", ""], "How do I make this?": ["continue_recipe"], "That order is done. What's the next order?": ["complete_ticket,read_ticket"] };
 
 // "backup:groq" = the app's real setup: groq first, the other keyed provider as instant backup
 function configs(): (ProviderConfig & { backup?: ProviderConfig[] })[] {
