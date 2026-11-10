@@ -8,7 +8,6 @@ import { mkdtemp, rm, writeFile, access } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-
 const CLI = process.env.WHISPER_CLI_PATH || "whisper-cli";
 const SERVER = process.env.WHISPER_SERVER_URL || "http://127.0.0.1:8178";
 const MODEL = process.env.WHISPER_MODEL_PATH || path.join(/*turbopackIgnore: true*/ process.cwd(), ".models", "ggml-base.en.bin");
@@ -24,9 +23,9 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const audio = Buffer.from(await req.arrayBuffer());
-  // 44-byte header + at least 0.3 s of 16 kHz 16-bit audio
-  if (audio.length < 44 + 16000 * 2 * 0.3 || audio.toString("ascii", 0, 4) !== "RIFF") {
-    return Response.json({ error: "Recording too short or not a WAV file." }, { status: 400 });
+  // 44-byte header + between 0.3 s and 30 s of 16 kHz 16-bit audio (the app stops recording at 15 s)
+  if (audio.length < 44 + 16000 * 2 * 0.3 || audio.length > 44 + 16000 * 2 * 30 || audio.toString("ascii", 0, 4) !== "RIFF") {
+    return Response.json({ error: "Recording too short, too long, or not a WAV file." }, { status: 400 });
   }
   if (!(await access(MODEL).then(() => true, () => false))) {
     return Response.json({ error: `Whisper model not found at ${path.basename(MODEL)}. See README "Audio setup" or set WHISPER_MODEL_PATH.` }, { status: 500 });

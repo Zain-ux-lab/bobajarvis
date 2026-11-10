@@ -4,15 +4,16 @@
 import { connection } from "next/server";
 import { z } from "zod";
 import { normalizePlan } from "@/lib/actions";
+import type { JarvisContext } from "@/lib/context";
 import { SERVER_DEADLINE_MS } from "@/lib/config";
 import { ProviderError, backupProviders, callWithBackup, configuredProvider, redact } from "@/lib/server/providers";
 import { SYSTEM_PROMPT, userMessage } from "@/lib/server/prompt";
-
 
 const BodySchema = z.object({
   transcript: z.string().trim().min(1).max(500),
   turnId: z.number().int(),
   stateVersion: z.number().int(),
+  // Only pasted into the prompt as text, so its shape is not checked here; the model's reply is what gets validated.
   context: z.record(z.string(), z.unknown()),
 });
 
@@ -30,12 +31,12 @@ export async function POST(req: Request) {
 
   const cfg = configuredProvider();
   if (!cfg) {
-    return Response.json({ error: "No LLM provider configured. Add GEMINI_API_KEY (or GROQ_API_KEY / OPENAI_API_KEY) to .env.local and restart the dev server.", turnId }, { status: 503 });
+    return Response.json({ error: "No LLM provider configured. Add GROQ_API_KEY (or GEMINI_API_KEY / OPENAI_API_KEY) to .env.local and restart the dev server.", turnId }, { status: 503 });
   }
 
   const started = Date.now();
   try {
-    const result = await callWithBackup([cfg, ...backupProviders(cfg)], SYSTEM_PROMPT, userMessage(transcript, context as never), req.signal, started + SERVER_DEADLINE_MS);
+    const result = await callWithBackup([cfg, ...backupProviders(cfg)], SYSTEM_PROMPT, userMessage(transcript, context as unknown as JarvisContext), req.signal, started + SERVER_DEADLINE_MS);
     const meta = { provider: result.provider, model: result.model, attempts: result.attempts, latencyMs: Date.now() - started, turnId, stateVersion };
     let raw: unknown;
     try {
