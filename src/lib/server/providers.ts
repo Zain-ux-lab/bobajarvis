@@ -25,7 +25,7 @@ const MODEL_VARS: Record<ProviderName, string> = { gemini: "GEMINI_MODEL", groq:
 /** Pick JARVIS_PROVIDER if set, else the first provider with a key. Never a provider without a key. */
 export function configuredProvider(env: Record<string, string | undefined> = process.env): ProviderConfig | null {
   const wanted = env.JARVIS_PROVIDER as ProviderName | undefined;
-  const order: ProviderName[] = wanted ? [wanted] : ["gemini", "groq", "openai"];
+  const order: ProviderName[] = wanted ? [wanted] : ["groq", "gemini", "openai"]; // fastest first (see VALIDATION.md benchmark)
   for (const name of order) {
     const key = env[KEY_VARS[name]]?.trim();
     if (!key) continue;
@@ -68,12 +68,12 @@ export interface CallResult {
  * Call the provider with bounded retries. The whole thing must finish before `deadline`
  * (kept shorter than the client's timeout). Daily quota exhaustion is never retried.
  */
-export async function callProvider(cfg: ProviderConfig, system: string, user: string, signal: AbortSignal, deadline: number, fetchImpl: typeof fetch = fetch): Promise<CallResult> {
+export async function callProvider(cfg: ProviderConfig, system: string, user: string, signal: AbortSignal, deadline: number, fetchImpl: typeof fetch = fetch, maxRetries = 2): Promise<CallResult> {
   const models = [cfg.model, ...(cfg.fallbackModel ? [cfg.fallbackModel] : [])];
   let attempts = 0;
   let lastError: ProviderError | null = null;
   for (const model of models) {
-    for (let retry = 0; retry <= 2; retry++) {
+    for (let retry = 0; retry <= maxRetries; retry++) {
       attempts++;
       try {
         const text = await callOnce(cfg, model, system, user, signal, deadline, fetchImpl);
@@ -119,6 +119,8 @@ async function callOnce(cfg: ProviderConfig, model: string, system: string, user
         { role: "user", content: user },
       ],
       response_format: { type: "json_schema", json_schema: { name: "jarvis_plan", strict: true, schema: PLAN_JSON_SCHEMA } },
+      // picking 1 of 12 actions needs little reasoning; "low" cut hidden reasoning tokens (and time) a lot
+      ...(model.startsWith("openai/gpt-oss") ? { reasoning_effort: "low" } : {}),
     };
   }
 
@@ -163,9 +165,48 @@ export function toProviderError(name: string, res: Response, raw: string): Provi
   const retryAfterHeader = Number(res.headers.get("retry-after"));
   const geminiDelay = /"retryDelay":\s*"(\d+(?:\.\d+)?)s"/.exec(raw);
   const retryAfterMs = retryAfterHeader > 0 ? retryAfterHeader * 1000 : geminiDelay ? Number(geminiDelay[1]) * 1000 : undefined;
+  // Groq's strict mode returns 400 when the model's JSON misses the schema: a model hiccup, not our request's fault.
+  if (res.status === 400 && /failed to generate json|does not match the expected schema/i.test(raw)) return new ProviderError(`${name} HTTP 502: model produced invalid JSON`, 502, true);
   const retryable = (res.status === 429 && !daily) || res.status >= 500;
   const prefix = res.status === 429 && daily ? "daily quota exhausted" : `HTTP ${res.status}`;
   return new ProviderError(`${name} ${prefix}: ${redact(message)}`, res.status, retryable, retryAfterMs);
+}
+
+// Groq rate-limits each model separately, so a second Groq model doubles fast capacity before we fall back to Gemini.
+const GROQ_SECOND_MODEL = "openai/gpt-oss-120b";
+
+/** Who to try, in order, when the main provider is rate-limited, down or slow. */
+export function backupProviders(primary: ProviderConfig, env: Record<string, string | undefined> = process.env): ProviderConfig[] {
+  const out: ProviderConfig[] = [];
+  if (primary.name === "groq" && primary.model !== GROQ_SECOND_MODEL) out.push({ ...primary, model: GROQ_SECOND_MODEL });
+  for (const name of ["groq", "gemini", "openai"] as ProviderName[]) {
+    if (name === primary.name) continue;
+    const cfg = configuredProvider({ ...env, JARVIS_PROVIDER: name });
+    if (cfg) out.push(cfg);
+  }
+  return out;
+}
+
+// Free tiers rate-limit hard and sometimes queue for seconds. With a backup we don't wait:
+// each provider but the last gets one try and this budget, the last gets the rest of the deadline.
+export const PRIMARY_BUDGET_MS = 4000;
+
+export async function callWithBackup(chain: ProviderConfig[], system: string, user: string, signal: AbortSignal, deadline: number, fetchImpl: typeof fetch = fetch): Promise<CallResult & { provider: ProviderName }> {
+  let attempts = 0;
+  for (const [i, cfg] of chain.entries()) {
+    const last = i === chain.length - 1;
+    try {
+      const r = last
+        ? await callProvider(cfg, system, user, signal, deadline, fetchImpl)
+        : await callProvider(cfg, system, user, signal, Math.min(deadline, Date.now() + PRIMARY_BUDGET_MS), fetchImpl, 0);
+      return { ...r, attempts: attempts + r.attempts, provider: cfg.name };
+    } catch (e) {
+      // auth/bad-request errors are our bug, not an outage: surface them instead of hiding them behind a backup
+      if (last || signal.aborted || !(e instanceof ProviderError) || !(e.status === 429 || e.status >= 500)) throw e;
+      attempts++;
+    }
+  }
+  throw new ProviderError("No provider configured", 503, false);
 }
 
 function sleep(ms: number, signal: AbortSignal) {

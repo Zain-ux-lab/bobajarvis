@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import { normalizePlan } from "./actions";
-import { ProviderError, callProvider, configuredProvider, redact, toProviderError } from "./server/providers";
+import { ProviderError, backupProviders, callProvider, callWithBackup, configuredProvider, redact, toProviderError } from "./server/providers";
 import { isStale } from "./store";
 import { encodeWav } from "./wav";
 
@@ -70,6 +70,56 @@ describe("providers", () => {
     }) as typeof fetch;
     await expect(callProvider({ name: "gemini", model: "m1", fallbackModel: "m2", key: "k" }, "s", "u", new AbortController().signal, Date.now() + 10_000, fake)).rejects.toBeInstanceOf(ProviderError);
     expect(calls).toBe(1);
+  });
+});
+
+describe("model output quirks", () => {
+  it("accepts a single itemId where itemIds was expected", () => {
+    const r = normalizePlan({ reply: "", actions: [flat({ type: "adjust_inventory", mode: "use", itemId: "oat_milk", amount: 200, unit: "ml" })] }, "I used 200 ml of oat milk");
+    expect(r.ok && r.plan.actions[0]).toMatchObject({ itemIds: ["oat_milk"] });
+  });
+
+  it("treats Groq's invalid-JSON 400 as a retryable model hiccup", () => {
+    const e = toProviderError("groq", new Response("", { status: 400 }), '{"error":{"message":"Generated JSON does not match the expected schema."}}');
+    expect(e).toMatchObject({ status: 502, retryable: true });
+  });
+
+  it("prefers the fastest provider when several keys exist", () => {
+    expect(configuredProvider({ GEMINI_API_KEY: "a", GROQ_API_KEY: "b" })?.name).toBe("groq");
+  });
+});
+
+describe("backup provider", () => {
+  const groq = { name: "groq" as const, model: "g", key: "k1" };
+  const gemini = { name: "gemini" as const, model: "m", key: "k2" };
+  const okGemini = () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"reply":"","actions":[]}' }] } }] }));
+  const run = (fake: (url: string) => Response) => {
+    const hosts: string[] = [];
+    const f = (async (url: string) => (hosts.push(new URL(url).host), fake(url))) as unknown as typeof fetch;
+    return { hosts, call: () => callWithBackup([groq, gemini], "s", "u", new AbortController().signal, Date.now() + 10_000, f) };
+  };
+
+  it("tries a second Groq model, then the other provider that has a key", () => {
+    expect(backupProviders(groq, { GEMINI_API_KEY: "x" }).map((b) => `${b.name}/${b.model}`)).toEqual(["groq/openai/gpt-oss-120b", "gemini/gemini-3.5-flash-lite"]);
+    expect(backupProviders(gemini, {})).toEqual([]);
+  });
+
+  it("switches to the backup straight away when the main provider is rate-limited", async () => {
+    const { hosts, call } = run((url) => (url.includes("groq") ? new Response('{"error":{"message":"Rate limit reached"}}', { status: 429, headers: { "retry-after": "1" } }) : okGemini()));
+    await expect(call()).resolves.toMatchObject({ provider: "gemini", model: "m", attempts: 2 });
+    expect(hosts).toEqual(["api.groq.com", "generativelanguage.googleapis.com"]); // no retry wait on the main one
+  });
+
+  it("does not hide an auth error behind the backup", async () => {
+    const { hosts, call } = run(() => new Response('{"error":{"message":"Invalid API Key"}}', { status: 401 }));
+    await expect(call()).rejects.toBeInstanceOf(ProviderError);
+    expect(hosts).toEqual(["api.groq.com"]);
+  });
+
+  it("never calls the backup when the main provider answers", async () => {
+    const { hosts, call } = run(() => new Response(JSON.stringify({ choices: [{ message: { content: '{"reply":"","actions":[]}' } }] })));
+    await expect(call()).resolves.toMatchObject({ provider: "groq" });
+    expect(hosts).toEqual(["api.groq.com"]);
   });
 });
 

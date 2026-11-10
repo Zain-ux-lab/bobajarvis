@@ -101,7 +101,11 @@ export type NormalizeResult = { ok: true; plan: Plan } | { ok: false; error: str
 
 /** Parse raw model JSON -> validated Plan. Drops nulls, validates types, checks completion grounding. */
 export function normalizePlan(raw: unknown, transcript: string): NormalizeResult {
-  const stripped = stripNulls(raw);
+  const stripped = stripNulls(raw) as { actions?: Record<string, unknown>[] };
+  // The flat schema has both itemId and itemIds; models sometimes fill the singular one for a single item.
+  for (const a of Array.isArray(stripped?.actions) ? stripped.actions : []) {
+    if ((a.type === "adjust_inventory" || a.type === "query_inventory") && a.itemIds === undefined && typeof a.itemId === "string") a.itemIds = [a.itemId];
+  }
   const parsed = PlanSchema.safeParse(stripped);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];

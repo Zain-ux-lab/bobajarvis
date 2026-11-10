@@ -5,7 +5,7 @@ import { connection } from "next/server";
 import { z } from "zod";
 import { normalizePlan } from "@/lib/actions";
 import { SERVER_DEADLINE_MS } from "@/lib/config";
-import { ProviderError, callProvider, configuredProvider, redact } from "@/lib/server/providers";
+import { ProviderError, backupProviders, callWithBackup, configuredProvider, redact } from "@/lib/server/providers";
 import { SYSTEM_PROMPT, userMessage } from "@/lib/server/prompt";
 
 
@@ -20,7 +20,7 @@ const BodySchema = z.object({
 export async function GET() {
   await connection(); // read env/disk at request time, not at build time
   const cfg = configuredProvider();
-  return Response.json(cfg ? { configured: true, provider: cfg.name, model: cfg.model, fallbackModel: cfg.fallbackModel ?? null } : { configured: false });
+  return Response.json(cfg ? { configured: true, provider: cfg.name, model: cfg.model, fallbackModel: cfg.fallbackModel ?? null, backups: backupProviders(cfg).map((b) => `${b.name}/${b.model}`) } : { configured: false });
 }
 
 export async function POST(req: Request) {
@@ -35,8 +35,8 @@ export async function POST(req: Request) {
 
   const started = Date.now();
   try {
-    const result = await callProvider(cfg, SYSTEM_PROMPT, userMessage(transcript, context as never), req.signal, started + SERVER_DEADLINE_MS);
-    const meta = { provider: cfg.name, model: result.model, attempts: result.attempts, latencyMs: Date.now() - started, turnId, stateVersion };
+    const result = await callWithBackup([cfg, ...backupProviders(cfg)], SYSTEM_PROMPT, userMessage(transcript, context as never), req.signal, started + SERVER_DEADLINE_MS);
+    const meta = { provider: result.provider, model: result.model, attempts: result.attempts, latencyMs: Date.now() - started, turnId, stateVersion };
     let raw: unknown;
     try {
       raw = JSON.parse(result.text);

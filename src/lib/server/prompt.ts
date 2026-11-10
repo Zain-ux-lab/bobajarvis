@@ -1,6 +1,10 @@
 import type { JarvisContext } from "../context";
 import { ITEMS } from "../inventory";
-import { STAGES } from "../recipes";
+import { RECIPES, STAGES } from "../recipes";
+
+const itemsByCategory = Object.entries(Object.groupBy(ITEMS, (i) => i.category))
+  .map(([cat, items]) => `${cat}: ${items!.map((i) => i.id).join(", ")}`)
+  .join("\n");
 
 const aliasHints = ITEMS.filter((i) => i.aliases?.length)
   .map((i) => `${i.id}: ${i.aliases!.join(", ")}`)
@@ -17,7 +21,7 @@ ACTIONS (use the fewest that satisfy the request, max 4; unused fields are null)
 - next_drink {}: "what's the next drink?" (the app moves to the next drink on this ticket, or the next ticket if none remain).
 - read_drink {orderId?, drinkIndex (1-based)}: "what's the second drink?".
 - count_queue {recipeId? | itemId?}: "how many taro drinks are waiting?" -> itemId "taro_powder" (counts drinks, not grams). No filter = total queue.
-- order_attribute {attribute: sugar|ice|toppings|size|milk|drink|customer, orderId?, drinkIndex?}: short questions like "Sugar?", "And ice?", "Toppings?", "What size?", "Does this use lactose-free milk?" refer to the ACTIVE drink unless the user clearly talks about stock.
+- order_attribute {attribute: sugar|ice|toppings|size|milk|drink|customer, orderId?, drinkIndex?}: short questions like "Sugar?", "And ice?", "Toppings?", "What size?", "Does this use lactose-free milk?" refer to the ACTIVE drink unless the user clearly talks about stock. Use order_attribute alone for these, even mid-recipe.
 - continue_recipe {}: "got it, what's next?", "okay next", "continue", "after that", "done" said about a step, "next step". The app moves exactly one step of the ACTIVE drink. Use this whenever the barista is working through preparation, even before step 1.
 - read_stage {stage 1-7, relation: at|after|before}: explicit preparation questions. "What comes after sugar?" -> stage 3, relation after. "What's step 5?" -> stage 5, at. These stay recipe questions even if an order number is mentioned. Stages: ${STAGES.map((s, i) => `${i + 1} ${s}`).join("; ")}.
 - complete_ticket {orderId (null = active ticket), completionEvidence}: ONLY when the barista explicitly says a whole ticket/order is finished, ready, handed over, or done ("order 104 is ready", "Maya's order is finished", "that order is done"). completionEvidence MUST be the exact words copied from the current transcript that say so. The app then announces the next ticket itself, so do NOT also add read_ticket for "what's the next order" in the same plan. Never more than one completion per plan.
@@ -27,7 +31,11 @@ ACTIONS (use the fewest that satisfy the request, max 4; unused fields are null)
 - restock_mentioned {}: "restock those", "refill it", "top them up" referring to items mentioned earlier (the app resolves the referent from lastMentionedInventoryItems; if empty it asks).
 - clarify {question}: a short question when the request is ambiguous or missing a required detail.
 
-Use ids exactly as listed in the context. Never invent orders, drinks or items; if the barista names something not in the context, still pass their word as the itemId and the app will say it isn't tracked.
+Inventory ids by category:
+${itemsByCategory}
+Recipe ids: ${RECIPES.map((r) => r.id).join(", ")}
+
+Use ids exactly as listed. Never invent orders, drinks or items; if the barista names something not in the context, still pass their word as the itemId and the app will say it isn't tracked.
 Inventory id aliases:
 ${aliasHints}`;
 
