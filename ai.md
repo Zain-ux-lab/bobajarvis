@@ -2,7 +2,9 @@
 
 This prototype was written with heavy help from an AI coding assistant (Claude, in Claude Code). The assistant wrote most of the code, tests and documents from a detailed specification. It also checked provider documentation for current model names and request formats, ran the tests, type-checker and build, and tested local transcription with synthesized audio.
 
-The AI also ran a three-phrase live check against Gemini (all passed). What the AI did **not** do: it did not run a broad language-understanding evaluation, and it did not test a real microphone, audible playback or a noisy shop. See `VALIDATION.md`.
+Tools used: Claude Code (Claude Opus) as the coding assistant; Groq (gpt-oss-20b, gpt-oss-120b) and Google Gemini (gemini-3.5-flash-lite) as the app's runtime LLMs; whisper.cpp (`ggml-base.en`) for local speech-to-text; the browser's built-in speech synthesis for the voice.
+
+The AI also wrote and ran the live benchmark (`npm run bench`) that compared models on 20 barista phrases and led to the switch from Gemini to Groq with a backup chain, and ran live checks against the Square sandbox. I tested the real microphone and voice playback myself in Chrome. Not done: an evaluation on recorded speech or in a noisy shop. See `VALIDATION.md`.
 
 ## What the student must understand to own this code
 
@@ -13,7 +15,7 @@ You should be able to explain and change each of these without the AI:
 3. **Completion safety.** Why `completionEvidence` must be a quote from the transcript, what that check proves (grounding) and what it doesn't (meaning), and how the prompt separates "got it" from "order 104 is ready".
 4. **Atomicity and idempotency.** `structuredClone` plus rollback on `ActionError`, the `deducted` flag, and ticket `credits` for manual usage.
 5. **The single ingredient function.** `drinkLines()` feeds both spoken steps and deductions, so they can't disagree. Know how size and sugar scaling round.
-6. **The voice state machine** in `src/lib/earpiece.ts`: the `generation` counter that drops stale results, the feedback gate (audio is ignored unless Listening), pre-roll, the 900 ms silence boundary, and the 400 ms resume delay.
+6. **The voice state machine** in `src/lib/earpiece.ts`: the `generation` counter that drops stale results, the feedback gate (audio is ignored unless Listening), pre-roll, the 650 ms silence boundary, and the 400 ms resume delay.
 7. **Stale turns** in `src/lib/store.ts`: turn id and state version, and AbortController cancellation.
-8. **Provider handling**: bounded retries, honouring `retry-after`, never retrying daily quota, the server deadline being shorter than the client timeout, and secret redaction.
+8. **Provider handling**: why Groq is tried first and how the backup chain (`callWithBackup`) switches on rate limits but not on auth errors, bounded retries, honouring `retry-after`, never retrying daily quota, the server deadline being shorter than the client timeout, and secret redaction.
 9. **What the tests prove and what they don't.** Mocked plans test the executor, not language understanding.

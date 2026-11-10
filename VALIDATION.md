@@ -6,7 +6,7 @@ Date: 2026-11-09. Machine: macOS (Apple Silicon), Node 26, Next.js 16.4.5.
 
 | Check | Result |
 |---|---|
-| `npm test` (Vitest) | 39 / 39 passing |
+| `npm test` (Vitest) | 51 / 51 passing (the live benchmark is skipped here; run it with `npm run bench`) |
 | `npm run typecheck` (strict) | clean |
 | `npm run lint` | clean |
 | `npm run build` | succeeds (one harmless warning: no fallback-metrics for the Atkinson Hyperlegible Next font) |
@@ -71,16 +71,56 @@ Measured per stage, from when the barista stops talking:
 |---|---|---|---|
 | End-of-speech wait | 900 ms | 650 ms | Shorter silence boundary |
 | Transcription | 400–600 ms (`whisper-cli` reloads the model each time) | ~220 ms (3 runs: 230, 210, 220) | `whisper-server` keeps the model loaded |
-| Brain (Gemini + executor) | ~1.1–1.4 s | unchanged | `gemini-3.5-flash-lite` used no thinking tokens, so a lower thinking setting gave no gain |
+| Brain (LLM + executor) | Gemini: median 3.4 s, p90 8.4 s (benchmark below) | Groq chain: median 0.75 s, p90 2.5 s | Smaller prompt, Groq first, instant backup chain (see Brain benchmark) |
 
 Roughly 2.4–2.9 s → 2.0–2.3 s to the start of the spoken reply. The transcription numbers are from a synthesized WAV posted to `/api/transcribe`; the app now shows real per-turn timing on screen. Verified: if `whisper-server` is down, `/api/transcribe` falls back to `whisper-cli` and still returns the text, and stopping the app stops `whisper-server` (no stray process).
 
-**Audio cues** (heard chime, thinking tick, error note) build and load without errors, but have **not been heard by ear** in this session.
+**Audio cues** (heard chime, thinking tick, error note) build and load without errors, but have not been separately confirmed by ear.
+
+## Brain benchmark (live, 2026-11-10)
+
+`npm run bench` (`bench/latency.test.ts`) sends 20 fixed barista phrases through the same prompt, schema and validation as `/api/jarvis`, in three shop states (fresh, mid-recipe, after an inventory question). It records time per call and whether the action types match the expected ones. All free-tier keys; one round per configuration, so treat the numbers as indicative.
+
+**1. Baseline: the model was the problem, not our prompt.** A 3-word "Say ok" request to `gemini-3.5-flash-lite` took 7.2 s, 0.9 s, then 5.9 s: Google's free tier queues requests.
+
+| Config (original 3,568-token prompt) | Median | p90 | Max | Correct | Notes |
+|---|---|---|---|---|---|
+| gemini-3.5-flash-lite (old default) | 3368 ms | 8399 ms | 11603 ms | 20/20 | 5 rate-limit retries |
+| gemini-3.1-flash-lite | 1312 ms | 3994 ms | 8042 ms | 19/20 | 1 timeout |
+| gemini-3.5-flash | 6685 ms | 12282 ms | | 9/20 | hit the free daily quota |
+| gemini-2.5-flash-lite | | | | | retired by Google (404) |
+| Groq models | | | | ≤5/20 | rate-limited: 8,000 tokens/min ≈ 2 requests/min at this prompt size |
+
+**2. Fixes.**
+- *Smaller context:* the model never states quantities, so stock levels were removed from the per-turn context, and fixed ids (items, recipes) moved into the system prompt. Context 4,015 → 1,086 characters; tokens per request 4,108 → 2,898.
+- *Less hidden reasoning on Groq:* `reasoning_effort: "low"` for gpt-oss cut reasoning tokens 449 → 16 and Groq's model time 0.87 s → 0.30 s for the same request.
+- *Model-output quirks handled in code, not hoped away:* a single `itemId` is accepted where `itemIds` was expected; Groq's "generated JSON does not match the schema" 400 is treated as a retryable model hiccup; and the executor now never starts a recipe in a plan that also reads or moves to a ticket (one model returned `read_ticket, read_drink, continue_recipe` for "What's the first order I have to make?").
+
+**3. Re-measured, paced under each free-tier limit (smaller prompt).**
+
+| Config | Median | p90 | Max | Correct |
+|---|---|---|---|---|
+| groq gpt-oss-20b | 710 ms | 1669 ms | 2163 ms | 18/20 (both misses since fixed in code) |
+| groq gpt-oss-120b | 697 ms | 989 ms | 1184 ms | 17/20 (3 schema 400s, now retryable) |
+| gemini-3.5-flash-lite | 1547 ms | 7103 ms | 10077 ms | 18/20 |
+| gemini-3.1-flash-lite | 4747 ms | 17299 ms | 17653 ms | 11/20 (timeouts) |
+
+**4. Chosen setup, at a busy barista pace (one phrase every 10 s, above Groq's free limit on purpose).** Groq rate-limits each model separately, so the chain is groq gpt-oss-20b → groq gpt-oss-120b → gemini-3.5-flash-lite. Every provider except the last gets one try and 4 s; a rate limit or outage moves to the next one immediately instead of waiting. Auth and bad-request errors are not hidden behind a backup.
+
+| Setup | Median | p90 | Max | Correct | Errors |
+|---|---|---|---|---|---|
+| Gemini only, 1 key, before | 3368 ms | 8399 ms | 11603 ms | 20/20 | 0 |
+| Groq 20b + Gemini backup | 1467 ms | 4025 ms | 7907 ms | 19/20 | 0 (backup used 9×) |
+| **Groq 20b → Groq 120b → Gemini (shipped)** | **748 ms** | **2520 ms** | **4132 ms** | **20/20** | **0** (backup used 9×) |
+
+In the app (typed test box, same path as the mic), "What's the first order I have to make?" then "Got it. What's next?" answered via groq/gpt-oss-20b in 948 ms end to end, read the ticket without starting it, then started step 1.
+
+Not measured: more than one round per configuration, paid tiers, or how the chain behaves when Groq is fully down for minutes (unit tests cover the switch with a fake fetch).
 
 ## Not verified
 
-- **Live LLM interpretation: only the three phrases below were checked.** A broader evaluation set has not been run.
+- **Live LLM interpretation:** checked on the 20-phrase benchmark above (single rounds), not on a larger or noisier set.
 - Gemini's handling of the nullable-enum schema was exercised only by these three calls.
-- **Real microphone capture, VAD thresholds, pre-roll and interrupt timing**: not exercised with a physical mic in this session. Only synthesized audio sent straight to the endpoint was tested.
-- **Audible playback** through speech synthesis: not confirmed by ear.
+- **Real microphone (2026-11-10):** the author ran the voice checklist in Chrome with headphones (ticket, recipe steps, completion, inventory, interrupt) and reported it smooth; server logs from those turns showed Whisper at about 0.2 s and Groq at about 1.0 s. VAD thresholds are not tuned for a noisy shop.
+- **Audible playback** through speech synthesis: confirmed by the author during the voice test (units are now spoken as words, e.g. "1.4 litres").
 - **Noisy-shop performance** (blenders, sealing machine, music): untested.

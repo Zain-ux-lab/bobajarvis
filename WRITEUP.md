@@ -1,5 +1,6 @@
 # BobaJarvis: voice for the hands-busy barista
 
+
 ## The problem
 
 Many small bubble tea shops run single-staffed shifts, especially at opening, closing and off-peak. One person takes orders, reads tickets, builds drinks, and notices when oat milk runs out. The POS and kitchen display assume someone can look at a screen and tap it. A lone barista usually can't: both hands are on a shaker or a sealing machine, and their eyes are on the line they are pouring to. Every glance at a ticket breaks rhythm. Every tap with wet or sugary gloves is slow and unhygienic. Every forgotten modifier ("less ice", "oat milk") is a remake. That is a B2B productivity problem: the shop pays for it in throughput, waste and customer complaints, and it is worst when there is no second person to help.
@@ -22,12 +23,20 @@ Noise shapes the design. Blenders, shakers, the sealing machine and music mean:
 
 After "Start shift" the barista can hear any ticket with every modifier, step through a seven-stage recipe one measured instruction at a time, ask short attribute questions about the current drink, complete a ticket by voice (ingredients are deducted once, and the next ticket is read but not started), and query or restock inventory with follow-ups like "what about oat?" and "restock those". Low stock gets one short warning appended to the reply.
 
-The key design choice is the split of responsibilities. The LLM only interprets language into a small, validated action vocabulary. Application code owns every state transition, measurement and inventory number, and runs each batch atomically. This makes the factual parts testable and stops the model from inventing quantities or tickets. All POS and inventory data is simulated.
+The key design choice is the split of responsibilities. The LLM only interprets language into a small, validated action vocabulary. Application code owns every state transition, measurement and inventory number, and runs each batch atomically. This makes the factual parts testable and stops the model from inventing quantities or tickets. All POS and inventory data is simulated. As a proof of concept for a real POS, it can also import open orders from Square's sandbox and mark an order ready for pickup when the barista says it's done.
+
+## Speed: choices backed by measurement
+
+A spoken answer has to arrive while the barista is still mid-pour, so I measured instead of guessing (`npm run bench`, 20 fixed barista phrases; details in `VALIDATION.md`).
+- **Transcription:** local `whisper-server` keeps the model loaded: about 0.2 s, versus 0.4-0.6 s when reloading each time. Audio stays on the machine.
+- **End of speech:** 650 ms of silence ends a sentence (down from 900 ms), short enough to feel snappy, long enough not to cut people off.
+- **The LLM was the bottleneck.** Gemini's free tier queued requests: median 3.4 s, 1 in 10 over 8 s. I cut the prompt by 30% (the model never needs stock quantities, since code states every number), switched to Groq (median 0.7 s), and lowered its hidden reasoning (model time 0.87 s to 0.30 s).
+- **Free-tier limits handled by design:** Groq allows about 2 requests a minute per model, so the server tries Groq 20b, then Groq 120b, then Gemini, switching instantly on a rate limit. Result at a busy pace: median 0.75 s, 1 in 10 over 2.5 s, 20/20 correct.
 
 ## Next steps
 
-1. Run the live semantic check and a small evaluation set of real recorded barista phrases (with noise) to measure interpretation accuracy.
-2. Field-test VAD thresholds and push-to-talk with real earpieces in a working shop. Consider a wake word.
-3. Connect to a real POS order feed and inventory source, read-only first.
+1. Grow the benchmark into recorded barista speech with real shop noise, run several rounds, and track accuracy per phrase type.
+2. Field-test speech detection and push-to-talk with real earpieces in a working shop. Consider a wake word.
+3. Move from the Square sandbox to a live POS: receive new orders by webhook instead of a manual import, and sync inventory.
 4. Add a server-side state store so a reload or a second device doesn't lose the shift.
 5. Proactive cues: new-ticket announcements and tapioca batch age reminders.

@@ -2,22 +2,44 @@
 
 An earpiece-first voice assistant prototype for a bubble tea shop worker who is working alone. The worker starts a shift once. After that they hear tickets, ask follow-up questions, get measured recipe steps one at a time, complete orders and manage stock by voice, without touching or looking at the screen.
 
-> **Honesty label:** the POS tickets, recipes and inventory are **simulated demo data** held in the browser. Nothing connects to a real shop system.
+> **Honesty label:** the POS tickets, recipes and inventory are **simulated demo data** held in the browser. Nothing connects to a real shop system; the optional Square integration only talks to Square's free sandbox.
 
 ## How it works (one paragraph)
 
 Speech → local Whisper (`/api/transcribe`) → transcript → `/api/jarvis` (LLM turns language into a **validated JSON action plan**) → `executePlan()` (app code changes state, does all arithmetic, writes the factual reply) → browser speech synthesis. Typed test phrases use the same path, starting at `/api/jarvis`. The LLM never edits state and never states quantities. It only picks actions such as `continue_recipe` or `complete_ticket`.
 
-| File | Role |
-|---|---|
-| `src/lib/recipes.ts` | 30 demo recipes and `drinkLines()`, the single ingredient calculation used for both instructions and deductions |
-| `src/lib/inventory.ts` | Stock catalogue, units, capacities, mishearing aliases |
-| `src/lib/actions.ts` | Action vocabulary (Zod discriminated union), the flat provider JSON schema, validation, completion-evidence check |
-| `src/lib/executor.ts` | All state transitions; atomic batches with rollback; low-stock warnings |
-| `src/lib/store.ts` | Zustand store; `runTurn()` (one path for voice and typing); stale-response guard |
-| `src/lib/earpiece.ts` | Voice state machine, VAD with pre-roll, feedback gating, interrupts |
-| `src/lib/server/providers.ts` | Gemini / Groq / OpenAI REST calls, bounded retries, redaction |
-| `src/app/api/jarvis`, `src/app/api/transcribe` | Server endpoints |
+## Project structure
+
+One Next.js project holds both halves. The rule that shapes it: **API keys and model calls live only on the server; the browser only ever sees action plans.**
+
+```
+src/
+├── app/
+│   ├── page.tsx                 FRONT-END  the earpiece screen (orb, status, last reply)
+│   ├── layout.tsx, globals.css  FRONT-END  fonts, colours, page shell
+│   └── api/                     BACK-END   server endpoints (keys are read here, never sent to the browser)
+│       ├── jarvis/route.ts        transcript + shop context -> validated action plan (LLM call)
+│       ├── transcribe/route.ts    16 kHz WAV -> text with local Whisper
+│       └── square/                optional Square sandbox: import open orders, mark one ready
+├── components/
+│   └── Drawer.tsx               FRONT-END  "Simulated POS & Inventory" drawer: tickets, stock, recipes, test tools, action log
+└── lib/
+    ├── earpiece.ts              FRONT-END  voice loop: mic, speech detection, Whisper upload, speaking, interrupts, audio cues
+    ├── store.ts                 FRONT-END  app state (Zustand); runTurn() = one path for voice and typed input
+    ├── wav.ts                   FRONT-END  resample + WAV encoding for Whisper
+    ├── server/                  BACK-END   only imported by the API routes
+    │   ├── providers.ts           Groq / Gemini / OpenAI calls, backup chain, retries, key redaction
+    │   ├── prompt.ts              the system prompt
+    │   └── square.ts              Square sandbox client
+    ├── actions.ts               SHARED     the 12 allowed actions (Zod), the JSON schema sent to the model, validation
+    ├── executor.ts              SHARED     the only place shop state changes: all arithmetic, atomic batches, rollback
+    ├── context.ts               SHARED     the small per-turn snapshot sent to the model
+    ├── recipes.ts, inventory.ts, shop.ts   SHARED  demo menu (30 recipes), stock catalogue, seed tickets
+    ├── squareMap.ts             SHARED     Square order -> ticket mapping
+    └── *.test.ts                TESTS      executor, validation/providers, Square mapping (fake data, no network)
+bench/latency.test.ts            BENCHMARK  live speed + accuracy comparison of models (npm run bench)
+scripts/dev.mjs                  starts whisper-server and Next together; square-seed.mjs creates sandbox test orders
+```
 
 ## Setup
 
@@ -31,7 +53,13 @@ npm install
 cp .env.example .env.local
 ```
 
-Put **one** API key in `.env.local` (Gemini is the default). Keys are read only on the server and never reach the browser.
+Put an API key in `.env.local`. **Recommended: a free Groq key plus a free Gemini key.** Groq is used first because it was fastest in our benchmark, and Gemini takes over instantly when Groq is rate-limited or slow. One key also works. Keys are read only on the server and never reach the browser.
+
+To re-measure speed and accuracy on 20 barista phrases (makes real API calls):
+
+```bash
+npm run bench
+```
 
 ### Audio setup (local Whisper)
 
@@ -109,4 +137,5 @@ Mapping lives in `src/lib/squareMap.ts`: line item names must match a recipe nam
 - Speech synthesis voice and quality depend on the browser and OS.
 - Recipes and quantities are plausible demo formulations, not a real shop's specifications.
 
-- Live LLM interpretation was checked on only three phrases (all passed). See `VALIDATION.md`.
+- Live LLM interpretation was checked on a 20-phrase benchmark (20/20 with the shipped setup, single round), not on recorded speech in a noisy shop. See `VALIDATION.md`.
+- Free-tier rate limits: at a fast pace Groq runs out of tokens per minute and the backup chain takes over, which is slower in the worst case (about 4 s).
