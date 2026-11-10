@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  devIndicators: false, // the dev-mode badge sat on top of the drawer label
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
