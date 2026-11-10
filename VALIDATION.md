@@ -6,7 +6,7 @@ First written 2026-11-09; benchmark and review pass added 2026-11-10. Machine: m
 
 | Check | Result |
 |---|---|
-| `npm test` (Vitest) | 53 / 53 passing (the live benchmark is skipped here; run it with `npm run bench`) |
+| `npm test` (Vitest) | 54 / 54 passing (the live benchmark is skipped here; run it with `npm run bench`) |
 | `npm run typecheck` (strict) | clean |
 | `npm run lint` | clean |
 | `npm run build` | succeeds (one harmless warning: no fallback-metrics for the Atkinson Hyperlegible Next font) |
@@ -24,6 +24,7 @@ First written 2026-11-09; benchmark and review pass added 2026-11-10. Machine: m
 - Completing a different ticket ("order 103 is ready" while making 101) keeps your place in the current drink.
 - Sugar scaling across percentages and sizes. Instructions and deductions come from the same numbers. Fruit teas have no powder.
 - Inventory category queries, "what about oat", "restock those" with and without a referent, aliases ("fruit to us"), an unknown item that isn't invented.
+- A general stock question ("what's the stock level like?") names the three lowest items and remembers them for "restock those".
 - Low-stock warning appended once, only when crossing below 15%, after the main reply.
 - Atomic rollback when one action in a batch fails. Unit and over-use rejections.
 - Plan validation rejects unknown types, negative amounts, a zero drink index, ungrounded or duplicate completions.
@@ -138,6 +139,18 @@ A code review and front-end polish, done with an AI assistant (see `ai.md`). One
 **Front-end, checked in a browser with a simulated microphone.** The browser used for the check blocks microphone access, so a silent fake microphone and a canned transcript were injected to drive the real voice loop through Listening, Hearing you, Thinking and Speaking. Checked this way: each state's word, colour and motion; the current-drink card and step bar updating; a 375 px wide phone layout with no sideways scroll; the drawer's tabs by arrow keys; Space interrupting while on shift even with a button focused, and pressing buttons normally when off shift; the microphone-denied message. Before and after screenshots were taken but are not in the repo.
 
 **A mishearing found with the real microphone (2026-11-10).** "How do you make the second drink, step by step?" was transcribed as "the second ring", and the app only read the drink out instead of also starting step 1. Asked through the API, the model returns `read_drink` plus `read_stage 1` for "drink" but only `read_drink` for "ring", so the transcription was the cause. "Drink" phrases were added to Whisper's vocabulary hint. Checked with three synthesized voices (macOS `say`): one of them was misheard before ("second dream") and none after. The author then repeated the sentence with the real microphone and reported that it worked (one try).
+
+**Three more misreads from the author's microphone session (2026-11-10, from the action log).**
+
+| Said | What happened | Fix |
+|---|---|---|
+| "How do you make the second drink?" | Only read the drink out; no recipe step. | Prompt rule: "how do I make…" means the recipe from step 1 (`read_drink` then `read_stage 1` for another drink). |
+| "What's the stock level like?" / "Check all the stock." | Asked back "Which item or category?" | The app now answers a general stock question itself: the three lowest items, and that everything else is above a stated percentage. Prompt tells the model not to ask which category. |
+| "Check for all of them." (answering that question) | Counted the ticket queue instead. | No direct fix: the question that caused it is gone. |
+
+Checked live after the change, one call each through `/api/jarvis` with hand-built contexts: the three phrases above, plus seven existing ones to catch regressions ("What's the second drink?", "How do I make this?", "Restock those.", "How much milk do we have?", "Got it. What's next?", "That order is done. What's the next order?", "Sugar?"). 10 of 10 returned the expected actions. Groq 20b answered none of them (its free allowance was used up at the time); Groq 120b and Gemini answered, so this is not evidence about 20b with the new rules.
+
+Four cases were added to the benchmark (26 phrases now), but **the full benchmark has not been re-run since these two prompt rules were added**, to save the free daily quota. The 22/22 result above is for the prompt before them.
 
 ## Checked by hand only
 

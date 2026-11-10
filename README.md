@@ -55,7 +55,7 @@ cp .env.example .env.local
 
 Put an API key in `.env.local`. **Recommended: a free Groq key plus a free Gemini key.** Groq is used first because it was fastest in our benchmark, and Gemini takes over instantly when Groq is rate-limited or slow. One key also works. Keys are read only on the server and never reach the browser.
 
-To re-measure speed and accuracy on 22 barista phrases (makes real API calls):
+To re-measure speed and accuracy on 26 barista phrases (makes real API calls):
 
 ```bash
 npm run bench
@@ -138,5 +138,5 @@ Mapping lives in `src/lib/squareMap.ts`: line item names must match a recipe nam
 - Speech synthesis voice and quality depend on the browser and OS.
 - Recipes and quantities are plausible demo formulations, not a real shop's specifications.
 - Accessibility was checked by keyboard and by reading the page's roles and labels, not with a real screen reader.
-- Live LLM interpretation was checked on a 22-phrase benchmark (22/22 with the shipped setup, single round), not on recorded speech in a noisy shop. A reworded phrase can still be misread; one such case was found and fixed in review. See `VALIDATION.md`.
+- Live LLM interpretation was checked on a 22-phrase benchmark (22/22 with the shipped setup, single round), not on recorded speech in a noisy shop. A reworded phrase can still be misread; several such cases were found with the real microphone and fixed. The two prompt rules added last were checked on 10 phrases, not with a full benchmark run. See `VALIDATION.md`.
 - Free-tier rate limits: at a fast pace Groq runs out of tokens per minute and the backup chain takes over, which is slower in the worst case (about 4 s).
