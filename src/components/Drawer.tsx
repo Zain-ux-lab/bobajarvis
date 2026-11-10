@@ -29,25 +29,35 @@ function Flash({ value, children }: { value: unknown; children: React.ReactNode 
   return <span key={n} className={n ? "flash rounded px-1" : "px-1"}>{children}</span>;
 }
 
-export function Drawer({ onTyped, earpiece, rerender }: { onTyped: (t: string) => Promise<void>; earpiece: Earpiece | null; rerender: () => void }) {
+export function Drawer({ onTyped, earpiece, rerender }: { onTyped: (t: string) => Promise<void>; earpiece: Earpiece; rerender: () => void }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<(typeof TABS)[number]>("Tickets");
+
+  // Standard tab keyboard pattern: Left/Right arrows move between tabs.
+  const onTabKey = (e: React.KeyboardEvent) => {
+    const move = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    if (!move) return;
+    const next = (TABS.indexOf(tab) + move + TABS.length) % TABS.length;
+    setTab(TABS[next]);
+    document.getElementById(`drawer-tab-${next}`)?.focus();
+  };
+
   return (
-    <div className={`border-leaf bg-steep fixed inset-x-0 bottom-0 z-10 border-t transition-[height] duration-300 ${open ? "h-[70dvh]" : "h-14"}`}>
-      <button onClick={() => setOpen(!open)} aria-expanded={open} className="flex h-14 w-full items-center justify-between px-4 text-left text-sm">
+    <div className={`border-edge bg-steep fixed inset-x-0 bottom-0 z-10 border-t transition-[height] duration-300 ${open ? "h-[70dvh]" : "h-14"}`}>
+      <button onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="drawer-body" className="flex h-14 w-full items-center justify-between gap-3 px-4 text-left text-xs leading-tight -outline-offset-2 sm:text-sm">
         <span>Simulated POS & Boba Inventory — Demo Verification Only</span>
-        <span className="text-husk">{open ? "Close" : "Open"}</span>
+        <span className="text-husk shrink-0">{open ? "Close" : "Open"}</span>
       </button>
       {open && (
-        <div className="flex h-[calc(70dvh-3.5rem)] flex-col">
-          <nav className="border-leaf flex gap-1 overflow-x-auto border-b px-3" role="tablist">
-            {TABS.map((t) => (
-              <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`whitespace-nowrap px-3 py-2 text-sm ${tab === t ? "text-cream border-taro border-b-2" : "text-husk"}`}>
+        <div id="drawer-body" className="flex h-[calc(70dvh-3.5rem)] flex-col">
+          <div className="border-leaf flex gap-1 overflow-x-auto border-b px-3" role="tablist" aria-label="Simulated shop data" onKeyDown={onTabKey}>
+            {TABS.map((t, i) => (
+              <button key={t} id={`drawer-tab-${i}`} role="tab" aria-selected={tab === t} aria-controls="drawer-panel" tabIndex={tab === t ? 0 : -1} onClick={() => setTab(t)} className={`min-h-11 whitespace-nowrap border-b-2 px-3 text-sm -outline-offset-2 ${tab === t ? "text-cream border-taro" : "text-husk border-transparent"}`}>
                 {t}
               </button>
             ))}
-          </nav>
-          <div className="flex-1 overflow-y-auto px-4 py-3 text-sm">
+          </div>
+          <div id="drawer-panel" role="tabpanel" aria-labelledby={`drawer-tab-${TABS.indexOf(tab)}`} className="flex-1 overflow-y-auto px-4 py-3 text-sm">
             {tab === "Tickets" && <Tickets />}
             {tab === "Inventory" && <Inventory />}
             {tab === "Recipes" && <Recipes />}
@@ -67,9 +77,9 @@ function Tickets() {
   return (
     <ul className="space-y-2">
       {sorted.map((t) => (
-        <li key={t.id} className={`border-leaf rounded-lg border p-3 ${t.id === shop.activeOrderId ? "border-taro" : ""} ${t.status === "completed" ? "opacity-50" : ""}`}>
+        <li key={t.id} className={`border-leaf rounded-lg border p-3 ${t.id === shop.activeOrderId ? "border-taro" : ""} ${t.status === "completed" ? "text-husk" : ""}`}>
           <p className="font-display">
-            Order {t.id} for {t.customer} <Flash value={t.status}>{t.status}</Flash>
+            Order {t.id} for {t.customer} <Flash value={t.status}><span className={t.status === "completed" ? "text-matcha" : "text-amber"}>{t.status}</span></Flash>
             {t.id === shop.activeOrderId && <span className="text-taro"> active, drink {shop.activeDrinkIndex + 1}, {shop.currentRecipeStepIndex < 0 ? "not started" : `step ${shop.currentRecipeStepIndex + 1}`}</span>}
           </p>
           {t.squareOrderId && (
@@ -127,10 +137,10 @@ function Recipes() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <select value={id} onChange={(e) => setId(e.target.value)} className="bg-roast border-leaf rounded border px-2 py-1">
+        <select value={id} onChange={(e) => setId(e.target.value)} className="bg-roast border-edge rounded border px-2 py-1">
           {RECIPES.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select>
-        <select value={size} onChange={(e) => setSize(e.target.value as Drink["size"])} className="bg-roast border-leaf rounded border px-2 py-1">
+        <select value={size} onChange={(e) => setSize(e.target.value as Drink["size"])} className="bg-roast border-edge rounded border px-2 py-1">
           <option value="regular">Regular 500 ml</option>
           <option value="large">Large 700 ml</option>
         </select>
@@ -144,7 +154,7 @@ function Recipes() {
   );
 }
 
-function TestPanel({ onTyped, earpiece, rerender }: { onTyped: (t: string) => Promise<void>; earpiece: Earpiece | null; rerender: () => void }) {
+function TestPanel({ onTyped, earpiece, rerender }: { onTyped: (t: string) => Promise<void>; earpiece: Earpiece; rerender: () => void }) {
   const { reset, addTicket, importSquareTickets } = useShop();
   const [squareMsg, setSquareMsg] = useState("");
   const importSquare = async () => {
@@ -172,9 +182,12 @@ function TestPanel({ onTyped, earpiece, rerender }: { onTyped: (t: string) => Pr
     e.preventDefault();
     if (!text.trim()) return;
     setBusy(true);
-    await onTyped(text);
-    setBusy(false);
-    setText("");
+    try {
+      await onTyped(text);
+      setText("");
+    } finally {
+      setBusy(false);
+    }
   };
   const quick = ["What's the current order?", "Got it. What's next?", "Sugar?", "What comes after sugar?", "That order is done. What's the next order?", "How much milk do we have?", "What about oat?", "Restock those", "How many taro drinks are waiting?"];
 
@@ -184,11 +197,11 @@ function TestPanel({ onTyped, earpiece, rerender }: { onTyped: (t: string) => Pr
         <h3 className="font-display">Typed phrase test</h3>
         <p className="text-husk">Uses exactly the same path as the microphone: /api/jarvis, then the executor.</p>
         <form onSubmit={submit} className="flex gap-2">
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Type what the barista would say" className="bg-roast border-leaf flex-1 rounded border px-3 py-2" />
+          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Type what the barista would say" aria-label="Phrase to test" className="bg-roast border-edge flex-1 rounded border px-3 py-2" />
           <button disabled={busy} className="bg-cream text-roast rounded px-4 py-2 disabled:opacity-50">{busy ? "Sending…" : "Send"}</button>
         </form>
         <div className="flex flex-wrap gap-1">
-          {quick.map((q) => <button key={q} onClick={() => setText(q)} className="border-leaf text-husk rounded-full border px-2 py-0.5 text-xs">{q}</button>)}
+          {quick.map((q) => <button key={q} onClick={() => setText(q)} className="border-edge text-husk rounded-full border px-2.5 py-1 text-xs">{q}</button>)}
         </div>
       </section>
 
@@ -196,11 +209,11 @@ function TestPanel({ onTyped, earpiece, rerender }: { onTyped: (t: string) => Pr
         <h3 className="font-display">Voice settings</h3>
         <p>Transcription: <span className="text-husk">{whisper}</span></p>
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={earpiece?.pushToTalk ?? false} onChange={(e) => { earpiece?.setPushToTalk(e.target.checked); rerender(); }} />
+          <input type="checkbox" checked={earpiece.pushToTalk} onChange={(e) => { earpiece.setPushToTalk(e.target.checked); rerender(); }} />
           Push-to-talk for noisy rooms (hold V or the Hold to talk button)
         </label>
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={earpiece?.cues ?? true} onChange={(e) => { earpiece?.setCues(e.target.checked); rerender(); }} />
+          <input type="checkbox" checked={earpiece.cues} onChange={(e) => { earpiece.setCues(e.target.checked); rerender(); }} />
           Audio cues (a chime when you&apos;re heard, a soft tick while thinking)
         </label>
         <button onClick={reset} className="border-error text-error rounded border px-3 py-1">Reset demo</button>
@@ -209,20 +222,20 @@ function TestPanel({ onTyped, earpiece, rerender }: { onTyped: (t: string) => Pr
       <section className="space-y-2 lg:col-span-2">
         <h3 className="font-display">Add a custom ticket</h3>
         <div className="flex flex-wrap gap-2">
-          <input value={customer} onChange={(e) => setCustomer(e.target.value)} aria-label="Customer" className="bg-roast border-leaf w-28 rounded border px-2 py-1" />
-          <select value={drink.recipeId} onChange={(e) => setDrink({ ...drink, recipeId: e.target.value })} aria-label="Drink" className="bg-roast border-leaf rounded border px-2 py-1">
+          <input value={customer} onChange={(e) => setCustomer(e.target.value)} aria-label="Customer" className="bg-roast border-edge w-28 rounded border px-2 py-1" />
+          <select value={drink.recipeId} onChange={(e) => setDrink({ ...drink, recipeId: e.target.value })} aria-label="Drink" className="bg-roast border-edge rounded border px-2 py-1">
             {RECIPES.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
-          <select value={drink.size} onChange={(e) => setDrink({ ...drink, size: e.target.value as Drink["size"] })} aria-label="Size" className="bg-roast border-leaf rounded border px-2 py-1">
+          <select value={drink.size} onChange={(e) => setDrink({ ...drink, size: e.target.value as Drink["size"] })} aria-label="Size" className="bg-roast border-edge rounded border px-2 py-1">
             <option value="regular">Regular</option><option value="large">Large</option>
           </select>
-          <select value={drink.sugar} onChange={(e) => setDrink({ ...drink, sugar: Number(e.target.value) as Drink["sugar"] })} aria-label="Sugar" className="bg-roast border-leaf rounded border px-2 py-1">
+          <select value={drink.sugar} onChange={(e) => setDrink({ ...drink, sugar: Number(e.target.value) as Drink["sugar"] })} aria-label="Sugar" className="bg-roast border-edge rounded border px-2 py-1">
             {[0, 50, 70, 100].map((s) => <option key={s} value={s}>{s}% sugar</option>)}
           </select>
-          <select value={drink.ice} onChange={(e) => setDrink({ ...drink, ice: e.target.value as Drink["ice"] })} aria-label="Ice" className="bg-roast border-leaf rounded border px-2 py-1">
+          <select value={drink.ice} onChange={(e) => setDrink({ ...drink, ice: e.target.value as Drink["ice"] })} aria-label="Ice" className="bg-roast border-edge rounded border px-2 py-1">
             <option value="regular">Regular ice</option><option value="less">Less ice</option><option value="none">No ice</option>
           </select>
-          <select value={drink.milk ?? ""} onChange={(e) => setDrink({ ...drink, milk: e.target.value || undefined })} aria-label="Milk" className="bg-roast border-leaf rounded border px-2 py-1">
+          <select value={drink.milk ?? ""} onChange={(e) => setDrink({ ...drink, milk: e.target.value || undefined })} aria-label="Milk" className="bg-roast border-edge rounded border px-2 py-1">
             <option value="">Recipe milk</option>
             {MILK_IDS.map((m) => <option key={m} value={m}>{ITEM_BY_ID[m].name}</option>)}
           </select>
@@ -235,9 +248,9 @@ function TestPanel({ onTyped, earpiece, rerender }: { onTyped: (t: string) => Pr
             </label>
           ))}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button onClick={() => addTicket(customer || "Guest", [drink])} className="bg-cream text-roast rounded px-3 py-1">Add ticket</button>
-          <button onClick={() => addTicket(["Noor", "Kai", "Elena", "Tomás"][Math.floor(Math.random() * 4)], [randomDrink(), randomDrink()])} className="border-leaf rounded border px-3 py-1">Add random two-drink ticket</button>
+          <button onClick={() => addTicket(["Noor", "Kai", "Elena", "Tomás"][Math.floor(Math.random() * 4)], [randomDrink(), randomDrink()])} className="border-edge rounded border px-3 py-1">Add random two-drink ticket</button>
           <button onClick={importSquare} className="border-taro text-taro rounded border px-3 py-1">Import open orders from Square sandbox</button>
         </div>
         {squareMsg && <p className="text-husk" aria-live="polite">{squareMsg}</p>}

@@ -2,12 +2,13 @@
 
 @theme {
   --color-roast: #17110d;     /* roasted oolong, the room */
-  --color-steep: #241a14;     /* drawer surface */
-  --color-leaf: #3a2c22;      /* hairlines */
-  --color-cream: #efe4d6;     /* text, milk */
-  --color-husk: #9a8877;      /* secondary text */
+  --color-steep: #241a14;     /* drawer and card surface */
+  --color-leaf: #3a2c22;      /* decorative hairlines */
+  --color-edge: #7a6553;      /* borders of buttons and inputs (3:1 against the background) */
+  --color-cream: #efe4d6;     /* text, milk; speaking */
+  --color-husk: #a89886;      /* secondary text (6:1 against the background) */
   --color-taro: #b9a3e3;      /* listening */
-  --color-amber: #d9a15b;     /* brown sugar, thinking */
+  --color-amber: #d9a15b;     /* brown sugar; hearing and thinking */
   --color-matcha: #9fbf7a;    /* changed values flash */
   --color-error: #e7867a;
   --font-display: var(--font-display), system-ui, sans-serif;
@@ -22,12 +23,67 @@ body {
 
 :focus-visible { outline: 2px solid var(--color-taro); outline-offset: 3px; }
 
+/*
+ * The voice state. Each state differs in three ways, so it reads at a glance
+ * and never depends on colour alone: the big word, the colour, and the motion.
+ *   idle       no glow
+ *   listening  taro glow that breathes and swells with the microphone level
+ *   hearing / thinking   amber arc spinning around the pearl
+ *   speaking   cream rings rippling outwards
+ */
+.voice { --halo: var(--color-husk); }
+.voice[data-state="listening"] { --halo: var(--color-taro); }
+.voice[data-state="transcribing"], .voice[data-state="thinking"] { --halo: var(--color-amber); }
+.voice[data-state="speaking"] { --halo: var(--color-cream); }
+
+.orb {
+  --lvl: 0; /* microphone level 0..1, set from page.tsx while listening */
+  position: relative;
+  width: clamp(6rem, 22dvh, 12rem); /* shrinks on short screens so the reply stays visible */
+  aspect-ratio: 1;
+  border-radius: 9999px;
+}
+.orb > * { position: absolute; inset: 0; border-radius: inherit; }
+
+.orb-halo {
+  box-shadow: 0 0 calc(24px + var(--lvl) * 90px) calc(3px + var(--lvl) * 26px) color-mix(in oklab, var(--halo) 55%, transparent);
+  transition: box-shadow 0.3s;
+}
+.voice[data-state="idle"] .orb-halo { box-shadow: none; }
+.voice[data-state="listening"] .orb-halo { animation: breathe 3.2s ease-in-out infinite; }
+
+.orb-spinner { inset: -10px; border: 3px solid transparent; border-top-color: var(--halo); animation: spin 1.1s linear infinite; }
+
+.orb-ripple { border: 2px solid var(--halo); opacity: 0; animation: ripple 1.6s ease-out infinite; }
+.orb-ripple + .orb-ripple { animation-delay: 0.8s; }
+
+/* the tapioca pearl */
+.orb-pearl {
+  background: radial-gradient(circle at 34% 30%, #6b5546 0%, #2b1f18 38%, #0d0907 78%);
+  box-shadow: inset -18px -24px 40px rgba(0, 0, 0, 0.6), inset 0 0 0 3px color-mix(in oklab, var(--halo) 75%, transparent);
+  transform: scale(calc(1 + var(--lvl) * 0.06));
+}
+.orb-pearl::after {
+  content: "";
+  position: absolute;
+  left: 24%;
+  top: 18%;
+  width: 22%;
+  height: 14%;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.25);
+  filter: blur(2px);
+  transform: rotate(-28deg);
+}
+
 @keyframes flash { from { background: color-mix(in oklab, var(--color-matcha) 35%, transparent); } to { background: transparent; } }
 .flash { animation: flash 1.4s ease-out; }
 
 @keyframes breathe { 50% { transform: scale(1.04); } }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes ripple { from { transform: scale(1); opacity: 0.7; } to { transform: scale(1.4); opacity: 0; } }
 
+/* With motion turned off, the word and the colour still show the state. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
