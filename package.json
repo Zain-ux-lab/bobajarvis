@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "square:seed": "node --env-file=.env.local scripts/square-seed.mjs"
+    "square:seed": "node --env-file=.env.local scripts/square-seed.mjs",
+    "bench": "BENCH=1 node --env-file=.env.local node_modules/.bin/vitest run bench"
   },
   "dependencies": {
     "next": "16.4.5",
