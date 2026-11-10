@@ -15,8 +15,8 @@ One Next.js project holds both halves. The rule that shapes it: **API keys and m
 ```
 src/
 ├── app/
-│   ├── page.tsx                 FRONT-END  the earpiece screen (orb, status, last reply)
-│   ├── layout.tsx, globals.css  FRONT-END  fonts, colours, page shell
+│   ├── page.tsx                 FRONT-END  the earpiece screen (pearl, voice state, current drink, last reply)
+│   ├── layout.tsx, globals.css  FRONT-END  fonts, colours, and how each voice state looks
 │   └── api/                     BACK-END   server endpoints (keys are read here, never sent to the browser)
 │       ├── jarvis/route.ts        transcript + shop context -> validated action plan (LLM call)
 │       ├── transcribe/route.ts    16 kHz WAV -> text with local Whisper
@@ -43,7 +43,7 @@ scripts/dev.mjs                  starts whisper-server and Next together; square
 
 ## Setup
 
-Requires Node 20+ and macOS/Linux.
+Requires Node 22.9 or newer (developed on Node 26) and macOS/Linux.
 
 ```bash
 npm install
@@ -55,7 +55,7 @@ cp .env.example .env.local
 
 Put an API key in `.env.local`. **Recommended: a free Groq key plus a free Gemini key.** Groq is used first because it was fastest in our benchmark, and Gemini takes over instantly when Groq is rate-limited or slow. One key also works. Keys are read only on the server and never reach the browser.
 
-To re-measure speed and accuracy on 20 barista phrases (makes real API calls):
+To re-measure speed and accuracy on 22 barista phrases (makes real API calls):
 
 ```bash
 npm run bench
@@ -85,7 +85,8 @@ npm run dev
 
 Open http://localhost:3000 in Chrome, click **Put on earpiece and start shift**, and allow the microphone. Use headphones: echo cancellation helps, but speakers next to the mic are the most common cause of false triggers.
 
-- **Interrupt**: click the pearl or press **Space**. Speech stops, the pending turn is discarded, and listening resumes.
+- **The screen at a glance**: the big word under the pearl is the voice state. Each state also has its own colour and motion, so it never depends on colour alone: *Listening* (purple glow that follows your voice), *Hearing you* / *Thinking* (amber arc spinning), *Speaking* (cream rings rippling out). The card below shows the current order, drink and recipe step.
+- **Interrupt**: click the pearl or press **Space**. Speech stops, the pending turn is discarded, and listening resumes. While on shift, Space is the stop key wherever the keyboard focus is, so use **Enter** to press a focused button.
 - **Audio cues**: a short rising chime means "I heard you", a soft tick every ~1 s means "still working", and a low note means something failed. The barista isn't looking at the orb, so sound is the real feedback. Turn them off in the drawer's Test tab.
 - **Turn timing**: the top-right corner shows the last voice turn's time, measured from when you stopped talking.
 - **Push-to-talk** (noisy rooms): enable it in the drawer's Test tab, then hold **V** or the Hold to talk button.
@@ -97,7 +98,7 @@ npm test
 ```
 
 ```bash
-npm run typecheck && npm run build
+npm run typecheck && npm run lint && npm run build
 ```
 
 ## Square sandbox (order import and mark-ready)
@@ -136,6 +137,6 @@ Mapping lives in `src/lib/squareMap.ts`: line item names must match a recipe nam
 - VAD is a simple adaptive energy threshold, not tuned in a real shop.
 - Speech synthesis voice and quality depend on the browser and OS.
 - Recipes and quantities are plausible demo formulations, not a real shop's specifications.
-
-- Live LLM interpretation was checked on a 20-phrase benchmark (20/20 with the shipped setup, single round), not on recorded speech in a noisy shop. See `VALIDATION.md`.
+- Accessibility was checked by keyboard and by reading the page's roles and labels, not with a real screen reader.
+- Live LLM interpretation was checked on a 22-phrase benchmark (22/22 with the shipped setup, single round), not on recorded speech in a noisy shop. A reworded phrase can still be misread; one such case was found and fixed in review. See `VALIDATION.md`.
 - Free-tier rate limits: at a fast pace Groq runs out of tokens per minute and the backup chain takes over, which is slower in the worst case (about 4 s).

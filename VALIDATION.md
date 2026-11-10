@@ -1,12 +1,12 @@
 # Validation
 
-Date: 2026-11-09. Machine: macOS (Apple Silicon), Node 26, Next.js 16.4.5.
+First written 2026-11-09; benchmark and review pass added 2026-11-10. Machine: macOS (Apple Silicon), Node 26, Next.js 16.4.5.
 
 ## Automated checks (all run, all passing)
 
 | Check | Result |
 |---|---|
-| `npm test` (Vitest) | 51 / 51 passing (the live benchmark is skipped here; run it with `npm run bench`) |
+| `npm test` (Vitest) | 53 / 53 passing (the live benchmark is skipped here; run it with `npm run bench`) |
 | `npm run typecheck` (strict) | clean |
 | `npm run lint` | clean |
 | `npm run build` | succeeds (one harmless warning: no fallback-metrics for the Atkinson Hyperlegible Next font) |
@@ -21,6 +21,7 @@ Date: 2026-11-09. Machine: macOS (Apple Silicon), Node 26, Next.js 16.4.5.
 - Next-drink behaviour within and across tickets. Invalid drink index is rejected.
 - Completion: exact deductions, oldest pending ticket selected, recipe not started. A retried completion doesn't deduct twice. "Complete + read next" in one plan doesn't skip a ticket. Repeated completions in one utterance complete only one ticket. Evidence must be quoted from the transcript.
 - Manual usage logged against a ticket is credited at completion (no double count).
+- Completing a different ticket ("order 103 is ready" while making 101) keeps your place in the current drink.
 - Sugar scaling across percentages and sizes. Instructions and deductions come from the same numbers. Fruit teas have no powder.
 - Inventory category queries, "what about oat", "restock those" with and without a referent, aliases ("fruit to us"), an unknown item that isn't invented.
 - Low-stock warning appended once, only when crossing below 15%, after the main reply.
@@ -73,13 +74,13 @@ Measured per stage, from when the barista stops talking:
 | Transcription | 400–600 ms (`whisper-cli` reloads the model each time) | ~220 ms (3 runs: 230, 210, 220) | `whisper-server` keeps the model loaded |
 | Brain (LLM + executor) | Gemini: median 3.4 s, p90 8.4 s (benchmark below) | Groq chain: median 0.75 s, p90 2.5 s | Smaller prompt, Groq first, instant backup chain (see Brain benchmark) |
 
-Roughly 2.4–2.9 s → 2.0–2.3 s to the start of the spoken reply. The transcription numbers are from a synthesized WAV posted to `/api/transcribe`; the app now shows real per-turn timing on screen. Verified: if `whisper-server` is down, `/api/transcribe` falls back to `whisper-cli` and still returns the text, and stopping the app stops `whisper-server` (no stray process).
+Adding up the "after" column gives roughly 1.6 s to the start of the spoken reply at the median (0.65 + 0.22 + 0.75). That is a sum of separately measured stages, not one end-to-end measurement. The transcription numbers are from a synthesized WAV posted to `/api/transcribe`; the app now shows real per-turn timing on screen. Verified: if `whisper-server` is down, `/api/transcribe` falls back to `whisper-cli` and still returns the text, and stopping the app stops `whisper-server` (no stray process).
 
 **Audio cues** (heard chime, thinking tick, error note) build and load without errors, but have not been separately confirmed by ear.
 
 ## Brain benchmark (live, 2026-11-10)
 
-`npm run bench` (`bench/latency.test.ts`) sends 20 fixed barista phrases through the same prompt, schema and validation as `/api/jarvis`, in three shop states (fresh, mid-recipe, after an inventory question). It records time per call and whether the action types match the expected ones. All free-tier keys; one round per configuration, so treat the numbers as indicative.
+`npm run bench` (`bench/latency.test.ts`) sent 20 fixed barista phrases (22 since the review pass below) through the same prompt, schema and validation as `/api/jarvis`, in three shop states (fresh, mid-recipe, after an inventory question). It records time per call and whether the action types match the expected ones. All free-tier keys; one round per configuration, so treat the numbers as indicative.
 
 **1. Baseline: the model was the problem, not our prompt.** A 3-word "Say ok" request to `gemini-3.5-flash-lite` took 7.2 s, 0.9 s, then 5.9 s: Google's free tier queues requests.
 
@@ -117,10 +118,35 @@ In the app (typed test box, same path as the mic), "What's the first order I hav
 
 Not measured: more than one round per configuration, paid tiers, or how the chain behaves when Groq is fully down for minutes (unit tests cover the switch with a fake fetch).
 
+## Review pass (2026-11-10, evening)
+
+A code review and front-end polish, done with an AI assistant (see `ai.md`). One commit per change in the git log.
+
+**A misread the benchmark had missed.** While testing the new screen, "Got it. What's next?" said right after a ticket was read aloud moved to the *next order* instead of starting the recipe: wrong in 4 of 5 live tries (the model returned `next_drink` or `read_ticket next`), including the reworded "What is next?". The benchmark had only tried that phrase on a fresh state with no earlier turns, which is not the order of the demo. Nothing was completed or deducted by the misread, but the barista would lose their place.
+
+- *Fix:* one rule added to the system prompt: a bare "what's next" with no "order", "ticket" or "drink" always means the next recipe step.
+- *Benchmark:* two cases added for exactly this situation (22 phrases now).
+- *Re-checked in the app (typed test box, live):* 5 of 5 correct, including "What's the next order?" still reading the next ticket.
+- *Benchmark re-run on the shipped chain:* **22/22 correct, 0 errors.**
+
+| Setup (prompt with the "next" rule) | Median | p90 | Max | Correct | Errors |
+|---|---|---|---|---|---|
+| Groq 20b → Groq 120b → Gemini | 962 ms | 5360 ms | 10048 ms | 22/22 | 0 (backup used 22×) |
+
+**Read the speed in this row with care.** The backup was used on every phrase, because the manual test calls made minutes earlier had already used up Groq 20b's free per-minute allowance. So this run shows the chain's worst case, not its normal speed, and it was not repeated (to save the free daily quota). The speed figures in the Brain benchmark section were measured before the prompt rule was added (it adds about 70 tokens to a roughly 2,900-token request).
+
+**Front-end, checked in a browser with a simulated microphone.** The browser used for the check blocks microphone access, so a silent fake microphone and a canned transcript were injected to drive the real voice loop through Listening, Hearing you, Thinking and Speaking. Checked this way: each state's word, colour and motion; the current-drink card and step bar updating; a 375 px wide phone layout with no sideways scroll; the drawer's tabs by arrow keys; Space interrupting while on shift even with a button focused, and pressing buttons normally when off shift; the microphone-denied message. Before and after screenshots were taken but are not in the repo.
+
+## Checked by hand only
+
+- **Real microphone (2026-11-10, before the front-end polish):** the author ran the voice checklist in Chrome with headphones (ticket, recipe steps, completion, inventory, interrupt) and reported it smooth; server logs from those turns showed Whisper at about 0.2 s and Groq at about 1.0 s. VAD thresholds are not tuned for a noisy shop.
+- **Audible playback** through speech synthesis: confirmed by the author during the voice test (units are now spoken as words, e.g. "1.4 litres").
+
 ## Not verified
 
-- **Live LLM interpretation:** checked on the 20-phrase benchmark above (single rounds), not on a larger or noisier set.
-- Gemini's handling of the nullable-enum schema was exercised only by these three calls.
-- **Real microphone (2026-11-10):** the author ran the voice checklist in Chrome with headphones (ticket, recipe steps, completion, inventory, interrupt) and reported it smooth; server logs from those turns showed Whisper at about 0.2 s and Groq at about 1.0 s. VAD thresholds are not tuned for a noisy shop.
-- **Audible playback** through speech synthesis: confirmed by the author during the voice test (units are now spoken as words, e.g. "1.4 litres").
+- **Real microphone on the polished screen:** not re-tested yet. The voice loop code changed only in small ways (see the git log), but the screen around it is new.
+- **Screen reader:** roles, labels and live regions were checked in the browser's accessibility tree, not with VoiceOver or another real screen reader. Colour contrast was calculated by hand (WCAG formula), not with an audit tool.
+- **Live LLM interpretation:** checked on the benchmark phrases above (single rounds), not on a larger or noisier set. A small rewording can still be misread (see the review pass).
+- **OpenAI path:** the request code exists and shares the Groq format, but no OpenAI key was ever used, so it has never been called live.
+- **Square failure path** (Square down or rejecting): not exercised live.
 - **Noisy-shop performance** (blenders, sealing machine, music): untested.
