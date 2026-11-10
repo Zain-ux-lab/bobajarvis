@@ -89,10 +89,10 @@ function itemIdsOrFail(ids: string[]): string[] {
   return ids.map((raw) => resolveItemId(raw) ?? fail(`I don't track "${raw}" in inventory.`));
 }
 
-function stockLine(s: ShopState, id: string): string {
+function stockLine(s: ShopState, id: string, now: number): string {
   const pct = Math.round((s.inventory[id] / ITEM_BY_ID[id].capacity) * 100);
   let line = `${ITEM_BY_ID[id].name} ${formatQty(id, s.inventory[id])} (${pct}%)`;
-  if (id === "tapioca") line += `, batch cooked ${Math.round((Date.now() - s.tapiocaCookedAt) / 60_000)} minutes ago`;
+  if (id === "tapioca") line += `, batch cooked ${Math.round((now - s.tapiocaCookedAt) / 60_000)} minutes ago`;
   return line;
 }
 
@@ -230,6 +230,9 @@ function run(s: ShopState, a: Action, transcript: string, now: number): string {
         s.inventory[id] = Math.max(0, s.inventory[id] - remaining); // the drink exists; stock can't go negative
       }
       t.deducted = true;
+      // Finishing some other ticket must not lose your place in the drink you're making.
+      const active = s.tickets.find((x) => x.id === s.activeOrderId);
+      if (active && active.id !== t.id && active.status === "pending") return `Order ${t.id} for ${t.customer} is complete.`;
       const next = pendingTickets(s)[0];
       if (!next) {
         s.activeOrderId = null;
@@ -259,7 +262,7 @@ function run(s: ShopState, a: Action, transcript: string, now: number): string {
       if (ids.length) {
         s.lastMentionedInventoryItems = ids;
         s.focus = "inventory";
-        parts.push(`${cap(ids.map((id) => stockLine(s, id)).join("; "))}.`);
+        parts.push(`${cap(ids.map((id) => stockLine(s, id, now)).join("; "))}.`);
       }
       // Never invent numbers for something we don't track.
       if (unknown.length) parts.push(`I don't track ${unknown.join(" or ")}.`);

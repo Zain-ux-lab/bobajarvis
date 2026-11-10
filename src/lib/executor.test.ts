@@ -147,6 +147,15 @@ describe("completion", () => {
     expect(r.state.tickets[0].status).toBe("pending");
   });
 
+  it("completing a different ticket keeps your place in the drink you are making", () => {
+    const mid = { ...initialState(0), currentRecipeStepIndex: 2 }; // order 101, step 3
+    const r = run(mid, [{ type: "complete_ticket", orderId: 103, completionEvidence: "order 103 is ready" }], "Order 103 is ready");
+    expect(r.state.tickets.find((t) => t.id === 103)?.status).toBe("completed");
+    expect(r.state.activeOrderId).toBe(101);
+    expect(r.state.currentRecipeStepIndex).toBe(2);
+    expect(r.speech).toBe("Order 103 for Leo is complete.");
+  });
+
   it("credits manual usage logged against a ticket instead of double-counting", () => {
     const s0 = initialState(0);
     const s1 = go(s0, [{ type: "adjust_inventory", mode: "use", itemIds: ["whole_milk"], amount: 100, unit: "ml", orderId: 101 }]);
