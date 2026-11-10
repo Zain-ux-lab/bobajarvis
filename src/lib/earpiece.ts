@@ -14,6 +14,13 @@ const MAX_UTTERANCE_MS = 15_000;
 const RESUME_AFTER_SPEAK_MS = 400;
 const TICK_EVERY_MS = 900; // "still working" tick while waiting for transcription/brain
 
+const UNIT_WORDS: Record<string, [one: string, many: string]> = { L: ["litre", "litres"], ml: ["millilitre", "millilitres"], g: ["gram", "grams"], kg: ["kilogram", "kilograms"] };
+
+/** Screen text says "1.4 L"; the voice should say "1.4 litres", not the letter L. */
+export function spoken(text: string): string {
+  return text.replace(/(\d+(?:\.\d+)?) (L|ml|g|kg)\b/g, (_, n: string, u: string) => `${n} ${UNIT_WORDS[u][n === "1" ? 0 : 1]}`);
+}
+
 /** Timing of the last turn, measured from when the barista stopped talking. */
 export interface TurnTiming {
   waitMs: number; // silence needed to know they finished
@@ -124,7 +131,7 @@ export class Earpiece {
     speechSynthesis.cancel();
     this.recording = null; // drop any partial capture
     this.setState("speaking");
-    const u = new SpeechSynthesisUtterance(text);
+    const u = new SpeechSynthesisUtterance(spoken(text));
     u.voice = speechSynthesis.getVoices().find((v) => v.lang.startsWith("en") && /Samantha|Google US|Natural/i.test(v.name)) ?? null;
     u.rate = 1.08;
     const done = () => gen === this.generation && this.listenSoon(RESUME_AFTER_SPEAK_MS);
