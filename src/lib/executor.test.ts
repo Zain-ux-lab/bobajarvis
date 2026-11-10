@@ -12,6 +12,12 @@ const run = (s: ShopState, actions: Action[], transcript = "test") => executePla
 const go = (s: ShopState, actions: Action[], transcript?: string) => run(s, actions, transcript).state;
 
 describe("recipe continuation", () => {
+  it("never starts a recipe when the same plan reads a ticket (model added an extra action)", () => {
+    const r = run(initialState(0), [{ type: "read_ticket", target: "first" }, { type: "continue_recipe" }], "What's the first order I have to make?");
+    expect(r.state.currentRecipeStepIndex).toBe(-1);
+    expect(r.speech).not.toContain("Step 1");
+  });
+
   it("starts step 1 from a ready (not started) ticket", () => {
     const s0 = initialState(0);
     const r = run(s0, [{ type: "continue_recipe" }], "Got it. What's next?");

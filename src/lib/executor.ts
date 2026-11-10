@@ -23,9 +23,12 @@ export function executePlan(original: ShopState, actions: Action[], transcript: 
   const s = structuredClone(original);
   const said: string[] = [];
   let completedThisTurn = false;
+  // Reading or moving to a ticket/drink never starts its recipe, whatever the model adds to the plan.
+  const navigates = actions.some((a) => a.type === "read_ticket" || a.type === "read_drink" || a.type === "next_drink" || a.type === "complete_ticket");
 
   try {
     for (const a of actions) {
+      if (navigates && a.type === "continue_recipe") continue;
       // After a completion we already announced the next ticket; don't skip past it.
       if (completedThisTurn && a.type === "read_ticket" && a.target !== "specific") continue;
       if (a.type === "complete_ticket") {
