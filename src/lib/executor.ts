@@ -4,7 +4,7 @@
 
 import type { Action } from "./actions";
 import { evidenceInTranscript } from "./actions";
-import { CATEGORIES, ITEM_BY_ID, ITEMS, LOW_STOCK_RATIO, formatQty, resolveItemId, toBaseUnit } from "./inventory";
+import { ITEM_BY_ID, ITEMS, LOW_STOCK_RATIO, formatQty, resolveItemId, toBaseUnit } from "./inventory";
 import { RECIPE_BY_ID, STAGES, drinkLines, drinkRequirements, stageInstruction, syrupMl, type Drink } from "./recipes";
 import { drinkText, pendingTickets, sizeText, ticketText, toppingText, type ShopState, type Ticket } from "./shop";
 
@@ -256,7 +256,15 @@ function run(s: ShopState, a: Action, transcript: string, now: number): string {
         else unknown.push(raw);
       }
       if (a.category) known.push(...ITEMS.filter((i) => i.category === a.category).map((i) => i.id));
-      if (!a.itemIds?.length && !a.category) return `Which item or category? I track ${CATEGORIES.join(", ")}.`;
+      // "What's the stock level like?": 50 items is too much to hear, so name the three that will run out first.
+      if (!a.itemIds?.length && !a.category) {
+        const pct = (id: string) => s.inventory[id] / ITEM_BY_ID[id].capacity;
+        const byLevel = ITEMS.map((i) => i.id).sort((x, y) => pct(x) - pct(y));
+        const lowest = byLevel.slice(0, 3);
+        s.lastMentionedInventoryItems = lowest;
+        s.focus = "inventory";
+        return `Lowest stock: ${lowest.map((id) => stockLine(s, id, now)).join("; ")}. Everything else is at ${Math.round(pct(byLevel[3]) * 100)}% or more.`;
+      }
       const ids = [...new Set(known)];
       const parts: string[] = [];
       if (ids.length) {

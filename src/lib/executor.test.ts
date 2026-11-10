@@ -208,6 +208,12 @@ describe("inventory", () => {
     expect(r.state.lastMentionedInventoryItems).toContain("oat_milk");
   });
 
+  it("'what's the stock level like' names the three lowest items instead of asking back", () => {
+    const r = run(initialState(0), [{ type: "query_inventory" }]);
+    expect(r.speech).toBe("Lowest stock: oat milk 1.4 L (18%); egg pudding 7 portions (18%); kiwi purée 600 ml (40%). Everything else is at 43% or more.");
+    expect(r.state.lastMentionedInventoryItems).toEqual(["oat_milk", "pudding", "kiwi_puree"]); // so "restock those" works next
+  });
+
   it("'restock those' resolves the previously mentioned items", () => {
     const s = go(initialState(0), [{ type: "query_inventory", itemIds: ["oat"] }]);
     const r = run(s, [{ type: "restock_mentioned" }]);
