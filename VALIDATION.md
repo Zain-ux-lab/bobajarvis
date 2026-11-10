@@ -137,6 +137,8 @@ A code review and front-end polish, done with an AI assistant (see `ai.md`). One
 
 **Front-end, checked in a browser with a simulated microphone.** The browser used for the check blocks microphone access, so a silent fake microphone and a canned transcript were injected to drive the real voice loop through Listening, Hearing you, Thinking and Speaking. Checked this way: each state's word, colour and motion; the current-drink card and step bar updating; a 375 px wide phone layout with no sideways scroll; the drawer's tabs by arrow keys; Space interrupting while on shift even with a button focused, and pressing buttons normally when off shift; the microphone-denied message. Before and after screenshots were taken but are not in the repo.
 
+**A mishearing found with the real microphone (2026-11-10).** "How do you make the second drink, step by step?" was transcribed as "the second ring", and the app only read the drink out instead of also starting step 1. Asked through the API, the model returns `read_drink` plus `read_stage 1` for "drink" but only `read_drink` for "ring", so the transcription was the cause. "Drink" phrases were added to Whisper's vocabulary hint. Checked with three synthesized voices (macOS `say`): one of them was misheard before ("second dream") and none after. Not yet re-checked with a real voice.
+
 ## Checked by hand only
 
 - **Real microphone (2026-11-10, before the front-end polish):** the author ran the voice checklist in Chrome with headphones (ticket, recipe steps, completion, inventory, interrupt) and reported it smooth; server logs from those turns showed Whisper at about 0.2 s and Groq at about 1.0 s. VAD thresholds are not tuned for a noisy shop.

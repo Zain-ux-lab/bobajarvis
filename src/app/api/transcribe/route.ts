@@ -11,8 +11,8 @@ import path from "node:path";
 const CLI = process.env.WHISPER_CLI_PATH || "whisper-cli";
 const SERVER = process.env.WHISPER_SERVER_URL || "http://127.0.0.1:8178";
 const MODEL = process.env.WHISPER_MODEL_PATH || path.join(/*turbopackIgnore: true*/ process.cwd(), ".models", "ggml-base.en.bin");
-// Biases whisper toward shop vocabulary so "taro" isn't heard as "tarah" as often.
-const VOCAB = "Bubble tea shop. Order 104 for Maya. Taro, matcha, oolong, jasmine, tapioca pearls, popping boba, fructose, Yakult, restock, less ice, 50% sugar.";
+// Biases whisper toward shop vocabulary so "taro" isn't heard as "tarah", or "drink" as "ring", as often.
+const VOCAB = "Bubble tea shop. Order 104 for Maya. How do I make the second drink? Next drink. Taro, matcha, oolong, jasmine, tapioca pearls, popping boba, fructose, Yakult, restock, less ice, 50% sugar.";
 
 export async function GET() {
   await connection(); // read env/disk at request time, not at build time
