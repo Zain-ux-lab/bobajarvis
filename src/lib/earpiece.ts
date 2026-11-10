@@ -41,7 +41,6 @@ export class Earpiece {
   state: VoiceState = "idle";
   level = 0; // 0..1 for the orb
   pushToTalk = false;
-  lastTranscriptError = "";
   cues = true; // short sounds so the barista knows they were heard without looking
   lastTiming: TurnTiming | null = null;
 
@@ -258,12 +257,9 @@ export class Earpiece {
     const reply = await this.h.onTranscript(text);
     if (gen !== this.generation) return; // interrupted while thinking
     const t2 = performance.now();
-    this.lastTiming = { waitMs: END_SILENCE_MS, hearMs: Math.round(t1 - t0), thinkMs: Math.round(t2 - t1), totalMs: Math.round(END_SILENCE_MS + t2 - t0) };
+    const waitMs = this.pushToTalk ? 0 : END_SILENCE_MS; // push-to-talk ends on key release, no silence wait
+    this.lastTiming = { waitMs, hearMs: Math.round(t1 - t0), thinkMs: Math.round(t2 - t1), totalMs: Math.round(waitMs + t2 - t0) };
     if (reply) this.say(reply, gen);
     else this.listenSoon(0);
-  }
-
-  get isRecording() {
-    return this.recording !== null;
   }
 }
