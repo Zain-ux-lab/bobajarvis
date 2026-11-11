@@ -152,6 +152,8 @@ Checked live after the change, one call each through `/api/jarvis` with hand-bui
 
 Four cases were added to the benchmark (26 phrases now), but **the full benchmark has not been re-run since these two prompt rules were added**, to save the free daily quota. The 22/22 result above is for the prompt before them.
 
+**Demo dry run (2026-11-11).** The 12-line video script was typed through the Test box (same path as the mic). One bug found: "What comes after sugar?" jumped to step 5. Both Groq models put the *answer* (stage 4) in `stage`, and the app then added "after". The benchmark had passed it because it only compared action types. Fix: the schema and prompt say `stage` is the stage the barista *named*; the benchmark now checks stage number and relation too. Re-asked 9 times across both models after the fix ("after sugar" ×3 per model, "step five", "before the ice"): all correct. The full script then ran 12/12 as expected.
+
 ## Checked by hand only
 
 - **Real microphone (2026-11-10, before the front-end polish):** the author ran the voice checklist in Chrome with headphones (ticket, recipe steps, completion, inventory, interrupt) and reported it smooth; server logs from those turns showed Whisper at about 0.2 s and Groq at about 1.0 s. VAD thresholds are not tuned for a noisy shop.
