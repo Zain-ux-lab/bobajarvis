@@ -119,17 +119,16 @@ npm run square:seed
 
 Mapping lives in `src/lib/squareMap.ts`: line item names must match a recipe name, and modifiers like "Large", "50% sugar", "Less ice", "Tapioca pearls", "Oat milk" set the drink. When you complete an imported order by voice ("Ava's order is ready"), BobaJarvis sets that order's Square fulfillment to **PREPARED** (ready for pickup). The order itself stays OPEN, because fully completing it needs payment. If Square can't be reached, the local completion still stands: the reply adds "Square wasn't updated for order N" and the drawer offers Retry.
 
-## Demo script (about 2½ minutes)
+## Demo script (about 2¾ minutes)
 
-1. **(0:00) Frame it.** "A lone barista has both hands on a shaker and eyes on the cup. Every screen tap costs time and hygiene." Click *Put on earpiece and start shift*. From here on, don't touch anything.
-2. **(0:15) Ticket.** Say *"What's the first order I have to make?"* You hear order 101 with size, sugar, ice and toppings.
-3. **(0:30) Recipe.** *"Got it. What's next?"* starts step 1 with exact millilitres. Say it again: it moves exactly one step. Ask *"Sugar?"* to hear the percentage and the exact syrup amount. Ask *"What comes after sugar?"* to hear step 4.
-4. **(1:00) Not-a-completion.** Say *"Got it."* Point out that nothing completed and no stock moved. Open the drawer briefly to show this.
-5. **(1:15) Completion.** *"That order is done. What's the next order?"* completes 101, deducts its ingredients once, and reads order 102 (two drinks) without starting it.
-6. **(1:40) Inventory.** *"How much milk do we have?"* then *"What about oat?"* then *"Restock those."* Show the inventory values flash in the drawer.
-7. **(2:05) Counting.** *"How many taro drinks are waiting?"* gives a drink count, not grams.
-8. **(2:15) Interrupt.** Ask for a long ticket, press Space mid-sentence, and ask something else.
-9. **(2:30) Close.** Point at the brain badge (real provider/model and latency) and the honesty label on the drawer.
+Every line below was dry-run on 2026-11-11 and gave the described reply. While the shift is on, the app treats all speech as commands, so explain before *Start shift* and after *End shift*.
+
+1. **Frame it (earpiece off).** A lone barista's hands and eyes are busy, so the assistant is voice-only, through an earpiece. Click *Put on earpiece and start shift*, then don't touch anything.
+2. **Ticket and recipe.** "What's the first order I have to make?" (reads order 101, doesn't start it) → "Got it. What's next?" (step 1, exact ml) → "Okay, next." (exactly one step) → "Sugar?" (70%: 39 ml syrup) → "What comes after sugar?" (step 4).
+3. **Completion.** "That order is done. What's the next order?" completes 101 (the AI must quote those words as evidence), deducts its ingredients once, and reads order 102 without starting it. "How do you make the second drink?" reads drink 2 and its step 1.
+4. **Inventory.** "How much milk do we have?" (whole milk is now 7.65 L: order 101's 350 ml came off) → "What about oat?" → "Restock those."
+5. **Interrupt and count.** "Read me order 105.", press **Space** mid-reply → "How many taro drinks are waiting?" (a drink count, not grams).
+6. **Explain (earpiece off).** Drawer → Action log (the AI's action plan and quoted evidence), Inventory (exact numbers from code), and the top-right turn timing. Why local Whisper and Groq first: see the Brain benchmark in `VALIDATION.md`.
 
 ## Limitations
 
