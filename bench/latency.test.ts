@@ -27,8 +27,8 @@ const CASES: [ShopState, string, string[]][] = [
   [midRecipe, "Okay next", ["continue_recipe"]],
   [midRecipe, "Done.", ["continue_recipe"]],
   [midRecipe, "Sugar?", ["order_attribute"]],
-  [midRecipe, "What comes after sugar?", ["read_stage"]],
-  [midRecipe, "What's step five?", ["read_stage"]],
+  [midRecipe, "What comes after sugar?", ["read_stage 3 after"]],
+  [midRecipe, "What's step five?", ["read_stage 5 at"]],
   [midRecipe, "That order is done. What's the next order?", ["complete_ticket"]],
   [fresh, "Order 103 is ready.", ["complete_ticket"]],
   [fresh, "Thanks.", ["clarify"]],
@@ -41,8 +41,8 @@ const CASES: [ShopState, string, string[]][] = [
   [fresh, "I used 200 ml of oat milk.", ["adjust_inventory"]],
   [fresh, "How much fruit to us do we have?", ["query_inventory"]],
   [fresh, "Does this one have toppings?", ["order_attribute"]],
-  [twoDrinks, "How do you make the second drink?", ["read_drink", "read_stage"]],
-  [fresh, "How do I make this?", ["read_stage"]],
+  [twoDrinks, "How do you make the second drink?", ["read_drink", "read_stage 1 at"]],
+  [fresh, "How do I make this?", ["read_stage 1 at"]],
   [fresh, "What's the stock level like?", ["query_inventory"]],
   [fresh, "Check all the stock.", ["query_inventory"]],
 ];
@@ -96,7 +96,8 @@ describe.skipIf(!process.env.BENCH)("brain latency", () => {
             ms.push(performance.now() - t0);
             retries += res.attempts - 1;
             const plan = normalizePlan(JSON.parse(res.text), text);
-            const got = plan.ok ? plan.plan.actions.map((a: Action) => a.type).join(",") : `invalid(${plan.error})`;
+            // read_stage also checks the stage number: "after sugar" must be stage 3, not the answer 4
+            const got = plan.ok ? plan.plan.actions.map((a: Action) => (a.type === "read_stage" ? `read_stage ${a.stage} ${a.relation}` : a.type)).join(",") : `invalid(${plan.error})`;
             const ok = got === expected.join(",") || (OK_ALTERNATIVES[text] ?? []).includes(got);
             if (ok) correct++;
             else wrong.push(`"${text}" -> ${got}`);

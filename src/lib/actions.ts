@@ -72,7 +72,7 @@ const ACTION_JSON_SCHEMA = {
     orderId: nullable("integer"),
     drinkIndex: nullable("integer", { description: "1-based drink position within the ticket" }),
     attribute: nullable("string", { enum: ["sugar", "ice", "toppings", "size", "milk", "drink", "customer", null] }),
-    stage: nullable("integer", { description: "1-7 recipe stage the user referred to" }),
+    stage: nullable("integer", { description: "1-7: the stage the barista NAMED, not the answer. \"What comes after sugar?\" -> 3 (sugar) with relation after; the app works out the next step." }),
     relation: nullable("string", { enum: ["at", "after", "before", null] }),
     recipeId: nullable("string"),
     itemId: nullable("string", { description: "inventory item id, e.g. taro_powder to count all taro drinks" }),
