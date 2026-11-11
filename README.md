@@ -1,5 +1,7 @@
 # BobaJarvis
 
+Source: https://github.com/Zain-ux-lab/bobajarvis
+
 An earpiece-first voice assistant prototype for a bubble tea shop worker who is working alone. The worker starts a shift once. After that they hear tickets, ask follow-up questions, get measured recipe steps one at a time, complete orders and manage stock by voice, without touching or looking at the screen.
 
 > **Honesty label:** the POS tickets, recipes and inventory are **simulated demo data** held in the browser. Nothing connects to a real shop system; the optional Square integration only talks to Square's free sandbox.

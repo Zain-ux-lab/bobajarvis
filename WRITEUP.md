@@ -1,5 +1,6 @@
 # BobaJarvis: voice for the hands-busy barista
 
+*A voice AI prototype for workplace productivity.*
 
 ## The problem
 
