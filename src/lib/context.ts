@@ -38,6 +38,8 @@ export function buildContext(s: ShopState): JarvisContext {
     lastMentionedInventoryItems: s.lastMentionedInventoryItems,
     pendingTickets: pendingTickets(s).map((p) => ({ id: p.id, customer: p.customer, drinks: p.drinks.map(drinkText) })),
     recentlyCompleted: s.tickets.filter((x) => x.status === "completed").map((x) => x.id).slice(-3),
-    recentTurns: s.turns,
+    // Last 3 exchanges, long replies shortened: enough for "what about oat?", and every token here is
+    // sent on every request (Groq's free tier limits tokens per minute). "Restock those" uses state, not this.
+    recentTurns: s.turns.slice(-6).map((t) => (t.text.length > 140 ? { ...t, text: `${t.text.slice(0, 137)}...` } : t)),
   };
 }

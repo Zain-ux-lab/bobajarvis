@@ -2,12 +2,10 @@ import type { JarvisContext } from "../context";
 import { ITEMS } from "../inventory";
 import { RECIPES, STAGES } from "../recipes";
 
+// One line per category, aliases in brackets: each id appears once (it is sent on every request,
+// and Groq's free tier limits tokens per minute). The executor also resolves aliases itself.
 const itemsByCategory = Object.entries(Object.groupBy(ITEMS, (i) => i.category))
-  .map(([cat, items]) => `${cat}: ${items!.map((i) => i.id).join(", ")}`)
-  .join("\n");
-
-const aliasHints = ITEMS.filter((i) => i.aliases?.length)
-  .map((i) => `${i.id}: ${i.aliases!.join(", ")}`)
+  .map(([cat, items]) => `${cat}: ${items!.map((i) => (i.aliases?.length ? `${i.id} (${i.aliases.join(", ")})` : i.id)).join(", ")}`)
   .join("\n");
 
 export const SYSTEM_PROMPT = `You are BobaJarvis, the earpiece assistant for a lone bubble tea barista whose hands and eyes are busy.
@@ -34,13 +32,11 @@ ACTIONS (use the fewest that satisfy the request, max 4; unused fields are null)
 "HOW DO I MAKE IT" RULE: "how do I make this?", "how do you make the second drink?", "walk me through it" ask for the recipe from the start. For the ACTIVE drink -> read_stage stage 1, relation at. For another drink -> read_drink for that drink, then read_stage stage 1, relation at.
 "NEXT" RULE: a bare "what's next?", "what is next?" or "next" (no word "order", "ticket" or "drink") ALWAYS means the next recipe step -> continue_recipe, even right after a ticket was read and before step 1. Only "next order" / "next ticket" -> read_ticket next. Only "next drink" -> next_drink.
 
-Inventory ids by category:
+Inventory ids by category, with what the barista may say (or mishear) in brackets:
 ${itemsByCategory}
 Recipe ids: ${RECIPES.map((r) => r.id).join(", ")}
 
-Use ids exactly as listed. Never invent orders, drinks or items; if the barista names something not in the context, still pass their word as the itemId and the app will say it isn't tracked.
-Inventory id aliases:
-${aliasHints}`;
+Use ids exactly as listed. Never invent orders, drinks or items; if the barista names something not in the context, still pass their word as the itemId and the app will say it isn't tracked.`;
 
 export function userMessage(transcript: string, ctx: JarvisContext): string {
   return `CONTEXT:\n${JSON.stringify(ctx)}\n\nCURRENT TRANSCRIPT (quote completionEvidence only from here):\n"""${transcript}"""`;
