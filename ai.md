@@ -23,7 +23,7 @@ I used AI tools throughout, as a pair programmer that writes code quickly, while
 ## How I kept control of AI-written code
 
 - **Nothing the model says is trusted at runtime.** Its output is constrained by a JSON schema, validated with Zod, and re-checked by the executor against real state.
-- **Tests and measurement, not impressions.** 54 unit tests for the executor, validation and provider handling; a 27-phrase live benchmark (`npm run bench`) that checks the chosen action, and the step number for recipe questions, on each model.
+- **Tests and measurement, not impressions.** 54 unit tests for the executor, validation and provider handling; a 27-phrase live benchmark (`npm run bench`) that checks the chosen action, and the step number for recipe questions; 27/27 on the final run.
 - **Small, reviewable changes.** One commit per change, each with what was wrong and how it was checked.
 - **Honest records.** `VALIDATION.md` states what was tested, what was not, and every bug found along the way.
 
@@ -34,5 +34,5 @@ I used AI tools throughout, as a pair programmer that writes code quickly, while
 3. **Completion needs evidence.** Completing an order is the only irreversible action, so `completionEvidence` must be a quote found in the transcript. A misheard "got it" can never complete an order.
 4. **Atomic and idempotent.** The executor works on a `structuredClone`; any failing action rolls back the whole plan. The `deducted` flag means ingredients come off exactly once.
 5. **One ingredient function.** `drinkLines()` produces both the spoken steps and the stock deductions, so they cannot disagree.
-6. **Latency by measurement.** Local `whisper-server` (~0.2 s); 650 ms of silence ends a sentence; a smaller prompt; Groq first with reasoning set low; then `callWithBackup` switches to Groq 120b and Gemini on rate limits or outages but never on auth errors. Median 0.75 s for the LLM step.
+6. **Latency by measurement.** Local `whisper-server` (~0.2 s); 650 ms of silence ends a sentence; a smaller prompt; Groq first with reasoning set low; then `callWithBackup` switches to Groq 120b and Gemini on rate limits or outages but never on auth errors. Median 0.69 s for the LLM step on the final run.
 7. **A voice loop that can't hear itself.** In `src/lib/earpiece.ts` the mic is ignored unless the state is Listening, and a `generation` counter drops any result from a turn that was interrupted.

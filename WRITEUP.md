@@ -19,11 +19,11 @@ Hands and eyes are busy; ears and voice are free. BobaJarvis is an earpiece assi
 An answer has to arrive mid-pour, so I built a benchmark (`npm run bench`) that runs fixed barista phrases through the real prompt and validation, timing each model.
 - **Transcription** runs locally on a warm `whisper-server`: about 0.2 s, and audio never leaves the shop.
 - **The LLM was the bottleneck.** Gemini's free tier took a median 3.4 s, 1 in 10 over 8 s. I cut the prompt by about 30% (the model never needs stock quantities), moved to Groq with low reasoning effort, and added a fallback chain (Groq 20b, Groq 120b, Gemini) that switches instantly on rate limits but never hides an auth error.
-- **Result:** median 0.75 s for the LLM step, 20/20 correct; roughly 1.5-2 s from the end of speech to the start of the reply.
+- **Result** on the final 27-phrase run: 27/27 correct, median 0.69 s for the LLM step; roughly 1.5-2 s from the end of speech to the start of the reply.
 
 ## What testing taught me
 
-Unit tests (54) prove the executor; they can't prove understanding. The benchmark scored 20/20, yet using it with a real microphone exposed failures it didn't contain: "drink" heard as "ring", "What comes after sugar?" skipping a step, "How much oat milk?" reading every milk. Each became a fix and a new benchmark case. A benchmark only proves the cases it contains, so real use has to keep feeding it.
+Unit tests (54) prove the executor; they can't prove understanding. An early benchmark scored 20/20, yet using the app with a real microphone exposed failures it didn't contain: "drink" heard as "ring", "What comes after sugar?" skipping a step, "How much oat milk?" reading every milk. Each became a fix and a new benchmark case (27 now, all passing). A benchmark only proves the cases it contains, so real use has to keep feeding it.
 
 ## Next steps
 

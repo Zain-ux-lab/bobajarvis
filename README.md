@@ -55,9 +55,9 @@ npm install
 cp .env.example .env.local
 ```
 
-Put an API key in `.env.local`. **Recommended: a free Groq key plus a free Gemini key.** Groq is used first because it was fastest in our benchmark, and Gemini takes over instantly when Groq is rate-limited or slow. One key also works. Keys are read only on the server and never reach the browser.
+Put an API key in `.env.local`. **Recommended: a free Groq key plus a free Gemini key**, both without a card: Groq at https://console.groq.com/keys, Gemini at https://aistudio.google.com/apikey. Groq is used first because it was fastest in our benchmark, and Gemini takes over instantly when Groq is rate-limited or slow. One key also works. Keys are read only on the server and never reach the browser.
 
-To re-measure speed and accuracy on 26 barista phrases (makes real API calls):
+To re-measure speed and accuracy on 27 barista phrases (makes real API calls):
 
 ```bash
 npm run bench
@@ -65,11 +65,13 @@ npm run bench
 
 ### Audio setup (local Whisper)
 
-Transcription uses [whisper.cpp](https://github.com/ggml-org/whisper.cpp)'s `whisper-cli`.
+Transcription uses [whisper.cpp](https://github.com/ggml-org/whisper.cpp)'s `whisper-cli` and `whisper-server`. On macOS:
 
 ```bash
 brew install whisper-cpp
 ```
+
+On Linux, build whisper.cpp from its repository (its README has the steps) and put `whisper-cli` and `whisper-server` on your PATH, or point `WHISPER_CLI_PATH` and `WHISPER_SERVER_PATH` at them. Only macOS was tested.
 
 ```bash
 mkdir -p .models && curl -L -o .models/ggml-base.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
@@ -139,5 +141,5 @@ Every line below was dry-run on 2026-11-11 and gave the described reply. While t
 - Speech synthesis voice and quality depend on the browser and OS.
 - Recipes and quantities are plausible demo formulations, not a real shop's specifications.
 - Accessibility was checked by keyboard and by reading the page's roles and labels, not with a real screen reader.
-- Live LLM interpretation was checked on a 22-phrase benchmark (22/22 with the shipped setup, single round), not on recorded speech in a noisy shop. A reworded phrase can still be misread; several such cases were found with the real microphone and fixed. The two prompt rules added last were checked on 10 phrases, not with a full benchmark run. See `VALIDATION.md`.
+- Live LLM interpretation was checked on a 27-phrase benchmark (27/27 with the submitted version, single round, typed text), not on recorded speech in a noisy shop. A reworded phrase can still be misread; several such cases were found with the real microphone and fixed. See `VALIDATION.md`.
 - Free-tier rate limits: at a fast pace Groq runs out of tokens per minute and the backup chain takes over, which is slower in the worst case (about 4 s).

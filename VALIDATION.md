@@ -150,13 +150,23 @@ An independent code review and front-end polish, using Claude Fable 5.2 (see `ai
 
 Checked live after the change, one call each through `/api/jarvis` with hand-built contexts: the three phrases above, plus seven existing ones to catch regressions ("What's the second drink?", "How do I make this?", "Restock those.", "How much milk do we have?", "Got it. What's next?", "That order is done. What's the next order?", "Sugar?"). 10 of 10 returned the expected actions. Groq 20b answered none of them (its free allowance was used up at the time); Groq 120b and Gemini answered, so this is not evidence about 20b with the new rules.
 
-Four cases were added to the benchmark (26 phrases now), but **the full benchmark has not been re-run since these two prompt rules were added**, to save the free daily quota. The 22/22 result above is for the prompt before them.
+Four cases were added to the benchmark (26 phrases then), but the full benchmark was not re-run at that point, to save the free daily quota (superseded by the final run on 2026-11-12, see **Final benchmark** below). The 22/22 result above is for the prompt before them.
 
 **Demo dry run (2026-11-11).** The 12-line video script was typed through the Test box (same path as the mic). One bug found: "What comes after sugar?" jumped to step 5. Both Groq models put the *answer* (stage 4) in `stage`, and the app then added "after". The benchmark had passed it because it only compared action types. Fix: the schema and prompt say `stage` is the stage the barista *named*; the benchmark now checks stage number and relation too. Re-asked 9 times across both models after the fix ("after sugar" ×3 per model, "step five", "before the ice"): all correct. The full script then ran 12/12 as expected.
 
 **Recording session (2026-11-12): slow turns.** While recording, some replies took several seconds. Groq still had its daily quota, but its free tier allows 8,000 tokens per minute per model (about 2 requests at ~3,000 tokens), so quick back-to-back commands fell through to Gemini, which that day took 5.6-9.7 s and once returned 503 "high demand". Two cuts to what every request carries: item ids and their mishearing aliases are listed once instead of twice (system prompt 7,885 -> 7,343 characters), and the context sends the last 3 exchanges with long replies shortened, instead of the last 5 in full (which grew by several hundred tokens per request as a demo went on). Then the 10-command demo script was simulated through the real chain and executor, one command every ~10 s: 10/10 correct, all answered by groq gpt-oss-20b in 359-1405 ms, context 1,118-1,737 characters. Not measured: the same simulation before the change, so the improvement is not quantified. A reported "Sugar?" -> step 2 could not be reproduced: Whisper transcribed "Sugar" correctly in 5 synthetic voices, and all three models returned `order_attribute: sugar` for "Sugar?", "Sugar.", "Sugar" and "And sugar?" right after step 1.
 
 **Recording session (2026-11-12): "How much oat milk do we have?"** read out every milk. Both Groq models returned `category: milk` for it 3 times out of 3 (the prompt's only example was the general "how much milk"). The prompt now says a specific item goes in `itemIds` and only a general word uses `category`. Re-asked on gpt-oss-20b: "how much oat milk do we have / is left" and "how much taro powder" -> that item only, "how much milk" -> all milks, 4/4. gpt-oss-120b was rate-limited during the re-test, so it is unchecked. The benchmark checks action types, not item ids, so it would not catch this case.
+
+## Final benchmark (2026-11-12, the submitted version)
+
+All 27 benchmark phrases, after every prompt change above, through the shipped chain (Groq gpt-oss-20b -> gpt-oss-120b -> Gemini 3.5 Flash-Lite), one phrase every ~10 s, one round. Recipe questions are checked for the step number and relation, not just the action type.
+
+| Setup | Median | p90 | Max | Correct | Errors |
+|---|---|---|---|---|---|
+| Groq 20b -> Groq 120b -> Gemini | 687 ms | 2799 ms | 11556 ms | **27/27** | 0 (a backup answered 5 times) |
+
+The slow tail is the free tier: when Groq's per-minute limit was reached, a backup answered, and Gemini was slow that day (see the recording-session notes). Not measured: more than one round, or recorded speech.
 
 ## Checked by hand only
 
