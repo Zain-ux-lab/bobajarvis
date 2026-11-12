@@ -27,7 +27,7 @@ I used AI tools throughout, as a pair programmer that writes code quickly, while
 - **Small, reviewable changes.** One commit per change, each with what was wrong and how it was checked.
 - **Honest records.** `VALIDATION.md` states what was tested, what was not, and every bug found along the way.
 
-## Design decisions I can explain
+## Design decisions
 
 1. **The LLM picks actions; code changes state.** `/api/jarvis` returns a plan of up to 4 actions from 12 types. `executePlan()` in `src/lib/executor.ts` is the only place shop state changes and does all arithmetic, so the model cannot invent quantities or tickets.
 2. **Three validation layers.** The provider's JSON schema shapes the output, Zod (`normalizePlan`) validates it, and the executor checks it against real state (does the order exist, is the unit compatible).
