@@ -121,7 +121,7 @@ Not measured: more than one round per configuration, paid tiers, or how the chai
 
 ## Review pass (2026-11-10, evening)
 
-A code review and front-end polish, done with an AI assistant (see `ai.md`). One commit per change in the git log.
+An independent code review and front-end polish, using Claude Fable 5.2 (see `ai.md`). One commit per change in the git log.
 
 **A misread the benchmark had missed.** While testing the new screen, "Got it. What's next?" said right after a ticket was read aloud moved to the *next order* instead of starting the recipe: wrong in 4 of 5 live tries (the model returned `next_drink` or `read_ticket next`), including the reworded "What is next?". The benchmark had only tried that phrase on a fresh state with no earlier turns, which is not the order of the demo. Nothing was completed or deducted by the misread, but the barista would lose their place.
 
@@ -140,7 +140,7 @@ A code review and front-end polish, done with an AI assistant (see `ai.md`). One
 
 **A mishearing found with the real microphone (2026-11-10).** "How do you make the second drink, step by step?" was transcribed as "the second ring", and the app only read the drink out instead of also starting step 1. Asked through the API, the model returns `read_drink` plus `read_stage 1` for "drink" but only `read_drink` for "ring", so the transcription was the cause. "Drink" phrases were added to Whisper's vocabulary hint. Checked with three synthesized voices (macOS `say`): one of them was misheard before ("second dream") and none after. The author then repeated the sentence with the real microphone and reported that it worked (one try).
 
-**Three more misreads from the author's microphone session (2026-11-10, from the action log).**
+**Three more misreads from my microphone session (2026-11-10, from the action log).**
 
 | Said | What happened | Fix |
 |---|---|---|
@@ -160,12 +160,12 @@ Four cases were added to the benchmark (26 phrases now), but **the full benchmar
 
 ## Checked by hand only
 
-- **Real microphone (2026-11-10, before the front-end polish):** the author ran the voice checklist in Chrome with headphones (ticket, recipe steps, completion, inventory, interrupt) and reported it smooth; server logs from those turns showed Whisper at about 0.2 s and Groq at about 1.0 s. VAD thresholds are not tuned for a noisy shop.
-- **Audible playback** through speech synthesis: confirmed by the author during the voice test (units are now spoken as words, e.g. "1.4 litres").
+- **Real microphone (2026-11-10, before the front-end polish):** I ran the voice checklist in Chrome with headphones (ticket, recipe steps, completion, inventory, interrupt) and it ran smoothly; server logs from those turns showed Whisper at about 0.2 s and Groq at about 1.0 s. VAD thresholds are not tuned for a noisy shop.
+- **Audible playback** through speech synthesis: confirmed during my voice test (units are now spoken as words, e.g. "1.4 litres").
 
 ## Not verified
 
-- **Real microphone on the polished screen:** not re-tested yet. The voice loop code changed only in small ways (see the git log), but the screen around it is new.
+- **Real microphone on the polished screen (2026-11-12):** used for the whole demo recording, with the Mac's microphone and speakers: ticket, recipe steps, sugar, completion, next order, inventory and restock. The misreads and slow turns found there are recorded above.
 - **Screen reader:** roles, labels and live regions were checked in the browser's accessibility tree, not with VoiceOver or another real screen reader. Colour contrast was calculated by hand (WCAG formula), not with an audit tool.
 - **Live LLM interpretation:** checked on the benchmark phrases above (single rounds), not on a larger or noisier set. A small rewording can still be misread (see the review pass).
 - **OpenAI path:** the request code exists and shares the Groq format, but no OpenAI key was ever used, so it has never been called live.
