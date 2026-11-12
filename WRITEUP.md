@@ -2,7 +2,7 @@
 
 *A voice AI prototype for workplace productivity.*
 
-## The problem
+## The problem and who it's for
 
 Many small bubble tea shops run single-staffed shifts. One person reads tickets, builds drinks and notices when oat milk runs out, but the POS assumes someone can look at a screen and tap it. A lone barista can't: both hands are on a shaker, eyes on the cup, gloves sticky. Every glance breaks rhythm, and every forgotten modifier ("less ice", "oat milk") is a remake the shop pays for.
 
