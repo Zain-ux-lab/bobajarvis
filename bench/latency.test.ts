@@ -36,6 +36,7 @@ const CASES: [ShopState, string, string[]][] = [
   [fresh, "Next drink.", ["next_drink"]],
   [fresh, "How many tarah drinks are waiting?", ["count_queue"]],
   [fresh, "How much milk do we have?", ["query_inventory"]],
+  [fresh, "How much oat milk do we have?", ["query_inventory"]], // must be itemIds oat_milk, not the whole milk category
   [afterMilk, "What about oat?", ["query_inventory"]],
   [afterMilk, "Restock those.", ["restock_mentioned"]],
   [fresh, "I used 200 ml of oat milk.", ["adjust_inventory"]],
